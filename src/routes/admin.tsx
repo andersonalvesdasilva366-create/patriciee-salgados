@@ -304,14 +304,6 @@ function ProductDialog({
     stock: product?.stock ?? 0,
   });
 
-  // Rehydrate when product prop changes
-  useState(() => setForm({
-    name: product?.name ?? "",
-    description: product?.description ?? "",
-    imageUrl: product?.imageUrl ?? "",
-    price: product?.price ?? 0,
-    stock: product?.stock ?? 0,
-  }));
 
   return (
     <DialogContent className="rounded-3xl">
