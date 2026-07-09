@@ -35,6 +35,8 @@ function formatDateForDisplay(dateStr: string) {
 export function ProductCard({ product }: { product: Product }) {
   const { addToCart } = useStore();
   const out = product.stock <= 0;
+  const canOrderWithoutStock = Boolean(product.allowOrderWithoutStock);
+  const canOrder = out ? canOrderWithoutStock : true;
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
 
@@ -68,7 +70,7 @@ export function ProductCard({ product }: { product: Product }) {
           <span className="text-2xl font-bold text-primary">{brl(product.price)}</span>
           <div className="flex gap-2">
             <Button
-              disabled={out}
+              disabled={out && !canOrderWithoutStock}
               onClick={() => {
                 addToCart(product);
                 toast.success(`${product.name} adicionado ao carrinho`);
@@ -77,15 +79,15 @@ export function ProductCard({ product }: { product: Product }) {
               className="flex-1 rounded-full"
             >
               <ShoppingCart className="mr-1 h-4 w-4" />
-              {out ? "Esgotado" : "Adicionar"}
+              {out ? (canOrderWithoutStock ? "Adicionar" : "Esgotado") : "Adicionar"}
             </Button>
             <Button
-              disabled={out}
+              disabled={!canOrder}
               onClick={() => setShowOrderDialog(true)}
               className="flex-1 rounded-full"
             >
               <Package className="mr-1 h-4 w-4" />
-              Encomendar
+              {out && !canOrderWithoutStock ? "Indisponível" : "Encomendar"}
             </Button>
           </div>
         </div>

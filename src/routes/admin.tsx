@@ -255,6 +255,7 @@ function ProductsPanel() {
                 <p className="truncate font-semibold">{p.name}</p>
                 <p className="text-sm text-muted-foreground">
                   {brl(p.price)} · estoque: {p.stock}
+                  {p.allowOrderWithoutStock && <span className="ml-2 inline-block rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium text-primary">Permite encomenda</span>}
                 </p>
               </div>
               <div className="flex gap-1">
@@ -301,6 +302,7 @@ function ProductDialog({
     imageUrl: product?.imageUrl ?? "",
     price: product?.price ?? 0,
     stock: product?.stock ?? 0,
+    allowOrderWithoutStock: product?.allowOrderWithoutStock ?? false,
   });
 
 
@@ -348,6 +350,18 @@ function ProductDialog({
             <Label>Estoque</Label>
             <Input type="number" min="0" step="1" value={form.stock} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} className="rounded-xl" />
           </div>
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+          <input
+            type="checkbox"
+            id="allow-order"
+            checked={form.allowOrderWithoutStock}
+            onChange={(e) => setForm({ ...form, allowOrderWithoutStock: e.target.checked })}
+            className="rounded"
+          />
+          <Label htmlFor="allow-order" className="cursor-pointer text-sm font-normal">
+            Permitir encomenda mesmo sem estoque?
+          </Label>
         </div>
         <DialogFooter>
           <Button type="submit" className="rounded-full">Salvar</Button>
