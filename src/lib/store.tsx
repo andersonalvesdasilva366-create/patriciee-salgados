@@ -8,64 +8,6 @@ const KEY_CART = "sdp:cart";
 const KEY_ORDERS = "sdp:orders";
 const KEY_ADMIN = "sdp:admin";
 
-const DEFAULT_PRODUCTS: Product[] = [
-  {
-    id: uid(),
-    name: "Coxinha de Frango",
-    description: "Massa dourada e crocante recheada com frango cremoso e temperado.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1625944525533-473f1a3d54e7?w=800&auto=format&fit=crop",
-    price: 5.5,
-    stock: 40,
-  },
-  {
-    id: uid(),
-    name: "Kibe Recheado",
-    description: "Kibe crocante recheado com queijo derretido. Uma delícia irresistível.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1626200419199-391ae4be7f9d?w=800&auto=format&fit=crop",
-    price: 6.0,
-    stock: 25,
-  },
-  {
-    id: uid(),
-    name: "Empada de Palmito",
-    description: "Massa amanteigada com recheio suave de palmito fresco.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?w=800&auto=format&fit=crop",
-    price: 5.0,
-    stock: 30,
-  },
-  {
-    id: uid(),
-    name: "Enroladinho de Salsicha",
-    description: "Massa fofinha envolvendo salsicha suculenta, sucesso garantido.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1619221882220-947b3d3c8861?w=800&auto=format&fit=crop",
-    price: 4.5,
-    stock: 0,
-    orderBalance: 8,
-  },
-  {
-    id: uid(),
-    name: "Pastel de Queijo",
-    description: "Pastel sequinho e crocante, recheado com muito queijo derretido.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=800&auto=format&fit=crop",
-    price: 6.5,
-    stock: 20,
-  },
-  {
-    id: uid(),
-    name: "Bolinha de Queijo",
-    description: "Clássico irresistível, macia por dentro e crocante por fora.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1606502281004-f4d47ea1d0a4?w=800&auto=format&fit=crop",
-    price: 4.0,
-    stock: 60,
-  },
-];
-
 function load<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
@@ -118,7 +60,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setProducts(load<Product[]>(KEY_PRODUCTS, DEFAULT_PRODUCTS));
+    setProducts(load<Product[]>(KEY_PRODUCTS, []));
     setCart(load<CartItem[]>(KEY_CART, []));
     setOrders(load<Order[]>(KEY_ORDERS, []));
     setIsAdmin(load<boolean>(KEY_ADMIN, false));
