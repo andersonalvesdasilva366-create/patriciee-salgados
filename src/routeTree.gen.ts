@@ -14,6 +14,7 @@ import { Route as ProdutosRouteImport } from './routes/produtos'
 import { Route as MissaoRouteImport } from './routes/missao'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CarrinhoRouteImport } from './routes/carrinho'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PedidoIdRouteImport } from './routes/pedido.$id'
 
@@ -42,6 +43,11 @@ const CarrinhoRoute = CarrinhoRouteImport.update({
   path: '/carrinho',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -55,6 +61,7 @@ const PedidoIdRoute = PedidoIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/carrinho': typeof CarrinhoRoute
   '/checkout': typeof CheckoutRoute
   '/missao': typeof MissaoRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/carrinho': typeof CarrinhoRoute
   '/checkout': typeof CheckoutRoute
   '/missao': typeof MissaoRoute
@@ -74,6 +82,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/carrinho': typeof CarrinhoRoute
   '/checkout': typeof CheckoutRoute
   '/missao': typeof MissaoRoute
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/carrinho'
     | '/checkout'
     | '/missao'
@@ -94,6 +104,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/carrinho'
     | '/checkout'
     | '/missao'
@@ -103,6 +114,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/carrinho'
     | '/checkout'
     | '/missao'
@@ -113,6 +125,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   CarrinhoRoute: typeof CarrinhoRoute
   CheckoutRoute: typeof CheckoutRoute
   MissaoRoute: typeof MissaoRoute
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CarrinhoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -177,6 +197,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   CarrinhoRoute: CarrinhoRoute,
   CheckoutRoute: CheckoutRoute,
   MissaoRoute: MissaoRoute,
