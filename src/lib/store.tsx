@@ -2,10 +2,9 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { CartItem, Order, OrderStatus, Product } from "./types";
 import { uid } from "./format";
 import { sendOrderToTelegram } from "./telegram";
+import { supabase } from "./supabase";
 
-const KEY_PRODUCTS = "sdp:products";
 const KEY_CART = "sdp:cart";
-const KEY_ORDERS = "sdp:orders";
 const KEY_ADMIN = "sdp:admin";
 
 function load<T>(key: string, fallback: T): T {
@@ -59,18 +58,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  // Load cart and admin from localStorage
   useEffect(() => {
-    setProducts(load<Product[]>(KEY_PRODUCTS, []));
     setCart(load<CartItem[]>(KEY_CART, []));
-    setOrders(load<Order[]>(KEY_ORDERS, []));
     setIsAdmin(load<boolean>(KEY_ADMIN, false));
     setHydrated(true);
   }, []);
 
-  useEffect(() => { if (hydrated) save(KEY_PRODUCTS, products); }, [products, hydrated]);
-  useEffect(() => { if (hydrated) save(KEY_CART, cart); }, [cart, hydrated]);
-  useEffect(() => { if (hydrated) save(KEY_ORDERS, orders); }, [orders, hydrated]);
-  useEffect(() => { if (hydrated) save(KEY_ADMIN, isAdmin); }, [isAdmin, hydrated]);
+  // Load products from Supabase
+  useEffect(() => {
+    const loadProducts = async () => {
+      if (typeof window === "undefined") return;
+      try {
+        const { data, error } = await supabase.from("products").select("*");
+        if (error) {
+          console.error("Error loading products:", error);
+          return;
+        }
+        setProducts(data || []);
+      } catch (err) {
+        console.error("Error loading products:", err);
+      }
+    };
+    loadProducts();
+  }, []);
+
+  // Load orders from Supabase
+  useEffect(() => {
+    const loadOrders = async () => {
+      if (typeof window === "undefined") return;
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*")
+          .order("createdAt", { ascending: false });
+        if (error) {
+          console.error("Error loading orders:", error);
+          return;
+        }
+        setOrders(data || []);
+      } catch (err) {
+        console.error("Error loading orders:", err);
+      }
+    };
+    loadOrders();
+  }, []);
+
+  // Save cart to localStorage
+  useEffect(() => {
+    if (hydrated) save(KEY_CART, cart);
+  }, [cart, hydrated]);
+
+  // Save admin to localStorage
+  useEffect(() => {
+    if (hydrated) save(KEY_ADMIN, isAdmin);
+  }, [isAdmin, hydrated]);
 
   const cartTotal = useMemo(
     () => cart.reduce((s, i) => s + i.price * i.quantity, 0),
@@ -89,10 +131,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     cartTotal,
     cartCount,
 
-    addProduct: (p) => setProducts((prev) => [...prev, { ...p, id: uid() }]),
-    updateProduct: (id, patch) =>
-      setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))),
-    deleteProduct: (id) => setProducts((prev) => prev.filter((p) => p.id !== id)),
+    addProduct: (p) => {
+      const newProduct: Product = { ...p, id: uid() };
+      setProducts((prev) => [...prev, newProduct]);
+      // Save to Supabase
+      supabase
+        .from("products")
+        .insert([
+          {
+            id: newProduct.id,
+            name: p.name,
+            description: p.description,
+            imageUrl: p.imageUrl,
+            price: p.price,
+            stock: p.stock,
+            orderBalance: p.orderBalance,
+          },
+        ])
+        .catch((err) => console.error("Error adding product:", err));
+    },
+
+    updateProduct: (id, patch) => {
+      setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+      // Save to Supabase
+      supabase
+        .from("products")
+        .update({
+          name: patch.name,
+          description: patch.description,
+          imageUrl: patch.imageUrl,
+          price: patch.price,
+          stock: patch.stock,
+          orderBalance: patch.orderBalance,
+        })
+        .eq("id", id)
+        .catch((err) => console.error("Error updating product:", err));
+    },
+
+    deleteProduct: (id) => {
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+      // Delete from Supabase
+      supabase
+        .from("products")
+        .delete()
+        .eq("id", id)
+        .catch((err) => console.error("Error deleting product:", err));
+    },
 
     addToCart: (product, qty = 1, deliveryDate?: string, kind: "stock" | "order" = "stock") =>
       setCart((prev) => {
@@ -157,14 +241,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       );
       setCart([]);
+
+      // Save order to Supabase
+      supabase
+        .from("orders")
+        .insert([
+          {
+            id: order.id,
+            customerName: order.customerName,
+            whatsapp: order.whatsapp,
+            notes: order.notes,
+            items: order.items,
+            total: order.total,
+            status: order.status,
+            createdAt: order.createdAt,
+          },
+        ])
+        .catch((err) => console.error("Error saving order:", err));
+
+      // Update products in Supabase
+      products.forEach((p) => {
+        const inCart = cart.filter((c) => c.productId === p.id);
+        const stockUsed = inCart.filter((c) => c.kind !== "order").reduce((sum, c) => sum + c.quantity, 0);
+        const orderUsed = inCart.filter((c) => c.kind === "order").reduce((sum, c) => sum + c.quantity, 0);
+        if (stockUsed > 0 || orderUsed > 0) {
+          supabase
+            .from("products")
+            .update({
+              stock: Math.max(0, p.stock - stockUsed),
+              orderBalance: Math.max(0, (p.orderBalance ?? 0) - orderUsed),
+            })
+            .eq("id", p.id)
+            .catch((err) => console.error("Error updating product stock:", err));
+        }
+      });
+
       void sendOrderToTelegram(order);
       return order;
     },
 
-    updateOrderStatus: (id, status, scheduledAt) =>
+    updateOrderStatus: (id, status, scheduledAt) => {
       setOrders((prev) =>
         prev.map((o) => (o.id === id ? { ...o, status, scheduledAt } : o)),
-      ),
+      );
+      // Save to Supabase
+      supabase
+        .from("orders")
+        .update({ status, scheduledAt })
+        .eq("id", id)
+        .catch((err) => console.error("Error updating order status:", err));
+    },
 
     loginAdmin: (password) => {
       const ok = password === "40023265a";
