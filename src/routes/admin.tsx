@@ -207,6 +207,12 @@ function OrderRow({ order }: { order: Order }) {
           </div>
         )}
       </div>
+      {order.feedback && (
+        <div className="mt-4 rounded-2xl bg-secondary/50 p-3 text-sm text-foreground">
+          <p className="font-medium">Feedback do cliente:</p>
+          <p className="whitespace-pre-line">{order.feedback}</p>
+        </div>
+      )}
     </li>
   );
 }
@@ -215,6 +221,33 @@ function ProductsPanel() {
   const { products, addProduct, updateProduct, deleteProduct } = useStore();
   const [editing, setEditing] = useState<Product | null>(null);
   const [open, setOpen] = useState(false);
+  const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
+  const [stockToAdd, setStockToAdd] = useState(0);
+  const [orderToAdd, setOrderToAdd] = useState(0);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+
+  const handleAdjustSubmit = async () => {
+    if (!adjustProduct) return;
+    const patch: Partial<Product> = {};
+    if (stockToAdd !== 0) patch.stock = Math.max(0, adjustProduct.stock + stockToAdd);
+    if (orderToAdd !== 0) patch.orderBalance = Math.max(0, (adjustProduct.orderBalance ?? 0) + orderToAdd);
+
+    if (!patch.stock && !patch.orderBalance) {
+      toast.error("Informe pelo menos um valor para ajustar");
+      return;
+    }
+
+    try {
+      await updateProduct(adjustProduct.id, patch);
+      toast.success("Estoque atualizado");
+      setAdjustOpen(false);
+      setAdjustProduct(null);
+      setStockToAdd(0);
+      setOrderToAdd(0);
+    } catch (err) {
+      toast.error("Erro ao ajustar estoque");
+    }
+  };
 
   return (
     <div>
@@ -251,46 +284,98 @@ function ProductsPanel() {
           Nenhum produto cadastrado.
         </p>
       ) : (
-        <ul className="grid gap-3">
-          {products.map((p) => (
-            <li key={p.id} className="flex items-center gap-4 rounded-2xl border border-border/60 bg-card p-3 shadow-card">
-              <img src={p.imageUrl} alt={p.name} className="h-16 w-16 shrink-0 rounded-xl object-cover" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">{p.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {brl(p.price)} · estoque: {p.stock} · encomenda: {p.orderBalance ?? 0}
-                </p>
-              </div>
-              <div className="flex gap-1">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full"
-                  onClick={() => { setEditing(p); setOpen(true); }}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full text-destructive hover:text-destructive"
-                  onClick={async () => {
-                    if (confirm(`Excluir "${p.name}"?`)) {
-                      try {
-                        await deleteProduct(p.id);
-                        toast.success("Produto excluído");
-                      } catch (err) {
-                        toast.error("Erro ao excluir produto");
+        <>
+          <ul className="grid gap-3">
+            {products.map((p) => (
+              <li key={p.id} className="flex items-center gap-4 rounded-2xl border border-border/60 bg-card p-3 shadow-card">
+                <img src={p.imageUrl} alt={p.name} className="h-16 w-16 shrink-0 rounded-xl object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{p.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {brl(p.price)} · estoque: {p.stock} · encomenda: {p.orderBalance ?? 0}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="rounded-full"
+                    onClick={() => { setAdjustProduct(p); setAdjustOpen(true); }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="rounded-full"
+                    onClick={() => { setEditing(p); setOpen(true); }}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="rounded-full text-destructive hover:text-destructive"
+                    onClick={async () => {
+                      if (confirm(`Excluir "${p.name}"?`)) {
+                        try {
+                          await deleteProduct(p.id);
+                          toast.success("Produto excluído");
+                        } catch (err) {
+                          toast.error("Erro ao excluir produto");
+                        }
                       }
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <Dialog open={adjustOpen} onOpenChange={(v) => { setAdjustOpen(v); if (!v) setAdjustProduct(null); }}>
+            <DialogContent className="rounded-3xl">
+              <DialogHeader>
+                <DialogTitle>Adicionar quantidade</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Ajuste o estoque ou encomenda para <strong>{adjustProduct?.name}</strong>.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Adicionar ao estoque</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={stockToAdd}
+                      onChange={(e) => setStockToAdd(Number(e.target.value))}
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Adicionar à encomenda</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={orderToAdd}
+                      onChange={(e) => setOrderToAdd(Number(e.target.value))}
+                      className="rounded-xl"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button className="rounded-full" onClick={handleAdjustSubmit}>
+                    Salvar ajuste
+                  </Button>
+                </DialogFooter>
               </div>
-            </li>
-          ))}
-        </ul>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
     </div>
   );

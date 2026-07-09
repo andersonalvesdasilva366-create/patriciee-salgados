@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS orders (
   total DECIMAL(10, 2) NOT NULL,
   status TEXT NOT NULL DEFAULT 'recebido',
   scheduledat TIMESTAMP WITH TIME ZONE,
+  feedback TEXT,
   createdat TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

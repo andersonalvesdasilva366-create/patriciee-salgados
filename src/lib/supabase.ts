@@ -40,27 +40,30 @@ export type Database = {
       orders: {
         Row: {
           id: string;
-          customerName: string;
+          customername: string;
           whatsapp: string;
           notes: string | null;
           items: any;
           total: number;
           status: string;
-          scheduledAt: string | null;
-          createdAt: string;
+          scheduledat: string | null;
+          createdat: string;
+          feedback: string | null;
         };
         Insert: {
-          customerName: string;
+          customername: string;
           whatsapp: string;
           notes?: string | null;
           items: any;
           total: number;
           status?: string;
-          scheduledAt?: string | null;
+          scheduledat?: string | null;
+          feedback?: string | null;
         };
         Update: {
           status?: string;
-          scheduledAt?: string | null;
+          scheduledat?: string | null;
+          feedback?: string | null;
         };
       };
     };

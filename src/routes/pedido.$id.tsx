@@ -1,9 +1,12 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { brl, formatDateTime } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import { Check, Clock, Package, Send, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/pedido/$id")({
   head: () => ({ meta: [{ title: "Status do pedido — Salgados da Paty" }] }),
@@ -19,8 +22,10 @@ const STEPS: { key: OrderStatus; label: string; icon: React.ComponentType<{ clas
 
 function OrderStatusPage() {
   const { id } = useParams({ from: "/pedido/$id" });
-  const { orders } = useStore();
+  const { orders, submitOrderFeedback } = useStore();
   const order = orders.find((o) => o.id === id);
+  const [feedback, setFeedback] = useState(order?.feedback ?? "");
+  const [savingFeedback, setSavingFeedback] = useState(false);
 
   if (!order) {
     return (
@@ -109,6 +114,32 @@ function OrderStatusPage() {
           <span>Total</span>
           <span className="text-primary">{brl(order.total)}</span>
         </div>
+
+        {order.status === "enviado" && (
+          <div className="mt-6 rounded-3xl border border-border/60 bg-muted/5 p-5">
+            <h2 className="font-display text-xl font-bold">Deixe seu feedback</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Conte como foi a entrega do seu pedido. Isso ajuda a Paty a melhorar sempre.
+            </p>
+            <Textarea
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder="Escreva seu feedback aqui..."
+              className="mt-4 min-h-[120px] rounded-3xl"
+            />
+            <Button
+              className="mt-4 rounded-full"
+              disabled={savingFeedback}
+              onClick={async () => {
+                setSavingFeedback(true);
+                await submitOrderFeedback(order.id, feedback.trim());
+                setSavingFeedback(false);
+              }}
+            >
+              {savingFeedback ? "Salvando..." : order.feedback ? "Atualizar feedback" : "Enviar feedback"}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

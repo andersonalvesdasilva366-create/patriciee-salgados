@@ -43,6 +43,7 @@ type Ctx = {
   // orders
   createOrder: (data: { customerName: string; whatsapp: string; notes: string }) => Promise<Order | undefined>;
   updateOrderStatus: (id: string, status: OrderStatus, scheduledAt?: string) => Promise<void>;
+  submitOrderFeedback: (id: string, feedback: string) => Promise<void>;
 
   // admin
   loginAdmin: (password: string) => boolean;
@@ -164,7 +165,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error("Error loading orders:", error);
         return;
       }
-      setOrders(
+          setOrders(
         (data || []).map((order) => ({
           id: order.id,
           customerName: order.customername,
@@ -174,6 +175,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           total: order.total,
           status: order.status,
           createdAt: order.createdat,
+          scheduledAt: order.scheduledat,
+          feedback: order.feedback ?? undefined,
         })),
       );
     } catch (err) {
@@ -400,7 +403,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    updateOrderStatus: async (id, status, scheduledAt) => {
+      updateOrderStatus: async (id, status, scheduledAt) => {
       if (typeof window === "undefined") return;
       try {
         const { error } = await supabase
@@ -419,6 +422,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       } catch (err) {
         console.error("Error updating order status:", err);
+      }
+    },
+
+    submitOrderFeedback: async (id, feedback) => {
+      if (typeof window === "undefined") return;
+      try {
+        const { error } = await supabase
+          .from("orders")
+          .update({ feedback })
+          .eq("id", id);
+
+        if (error) {
+          console.error("Error submitting order feedback:", error);
+          return;
+        }
+
+        setOrders((prev) =>
+          prev.map((o) => (o.id === id ? { ...o, feedback } : o)),
+        );
+      } catch (err) {
+        console.error("Error submitting order feedback:", err);
       }
     },
 
