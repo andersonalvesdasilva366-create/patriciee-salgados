@@ -91,7 +91,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from("orders")
         .select("*")
-        .order("createdAt", { ascending: false });
+        .order("created_at", { ascending: false });
       if (error) {
         console.error("Error loading orders:", error);
         return;
@@ -142,10 +142,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             {
               name: p.name,
               description: p.description,
-              imageUrl: p.imageUrl,
+              image_url: p.imageUrl,
               price: p.price,
               stock: p.stock,
-              orderBalance: p.orderBalance,
+              order_balance: p.orderBalance,
             },
           ]);
         
@@ -169,10 +169,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .update({
             ...(patch.name !== undefined && { name: patch.name }),
             ...(patch.description !== undefined && { description: patch.description }),
-            ...(patch.imageUrl !== undefined && { imageUrl: patch.imageUrl }),
+            ...(patch.imageUrl !== undefined && { image_url: patch.imageUrl }),
             ...(patch.price !== undefined && { price: patch.price }),
             ...(patch.stock !== undefined && { stock: patch.stock }),
-            ...(patch.orderBalance !== undefined && { orderBalance: patch.orderBalance }),
+            ...(patch.orderBalance !== undefined && { order_balance: patch.orderBalance }),
           })
           .eq("id", id);
         
@@ -273,7 +273,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               items: order.items,
               total: order.total,
               status: order.status,
-              createdAt: order.createdAt,
+              created_at: order.createdAt,
             },
           ]);
         
@@ -293,7 +293,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               .from("products")
               .update({
                 stock: Math.max(0, p.stock - stockUsed),
-                orderBalance: Math.max(0, (p.orderBalance ?? 0) - orderUsed),
+                order_balance: Math.max(0, (p.orderBalance ?? 0) - orderUsed),
               })
               .eq("id", p.id);
           }
@@ -328,7 +328,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const { error } = await supabase
           .from("orders")
-          .update({ status, scheduledAt })
+          .update({ status, scheduled_at: scheduledAt })
           .eq("id", id);
         
         if (error) {

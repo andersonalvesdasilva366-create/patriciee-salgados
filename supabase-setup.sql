@@ -7,10 +7,10 @@ CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
-  imageUrl TEXT,
+  image_url TEXT,
   price DECIMAL(10, 2) NOT NULL,
   stock INTEGER NOT NULL DEFAULT 0,
-  orderBalance INTEGER DEFAULT 0,
+  order_balance INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS orders (
   items JSONB NOT NULL,
   total DECIMAL(10, 2) NOT NULL,
   status TEXT NOT NULL DEFAULT 'recebido',
-  scheduledAt TIMESTAMP WITH TIME ZONE,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  scheduled_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 3. ENABLE ROW LEVEL SECURITY
@@ -59,5 +59,5 @@ CREATE POLICY "Allow delete for now" ON orders
 
 -- 9. CREATE INDEXES FOR PERFORMANCE
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
-CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(createdAt);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
