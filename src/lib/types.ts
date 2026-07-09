@@ -13,6 +13,7 @@ export type CartItem = {
   imageUrl: string;
   price: number;
   quantity: number;
+  deliveryDate?: string; // ISO date (YYYY-MM-DD)
 };
 
 export type OrderStatus =

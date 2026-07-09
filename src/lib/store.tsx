@@ -91,7 +91,7 @@ type Ctx = {
   deleteProduct: (id: string) => void;
 
   // cart
-  addToCart: (product: Product, qty?: number) => void;
+  addToCart: (product: Product, qty?: number, deliveryDate?: string) => void;
   removeFromCart: (productId: string) => void;
   setQuantity: (productId: string, qty: number) => void;
   clearCart: () => void;
@@ -151,14 +151,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))),
     deleteProduct: (id) => setProducts((prev) => prev.filter((p) => p.id !== id)),
 
-    addToCart: (product, qty = 1) =>
+    addToCart: (product, qty = 1, deliveryDate?: string) =>
       setCart((prev) => {
-        const existing = prev.find((i) => i.productId === product.id);
+        const existing = prev.find((i) => i.productId === product.id && i.deliveryDate === deliveryDate);
         const maxQty = product.stock;
         if (existing) {
           const nextQty = Math.min(existing.quantity + qty, maxQty);
           return prev.map((i) =>
-            i.productId === product.id ? { ...i, quantity: nextQty } : i,
+            i.productId === product.id && i.deliveryDate === deliveryDate ? { ...i, quantity: nextQty } : i,
           );
         }
         return [
@@ -169,6 +169,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             imageUrl: product.imageUrl,
             price: product.price,
             quantity: Math.min(qty, maxQty),
+            ...(deliveryDate && { deliveryDate }),
           },
         ];
       }),

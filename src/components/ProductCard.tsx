@@ -1,13 +1,42 @@
 import type { Product } from "@/lib/types";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Package } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+function getAvailableDates() {
+  const dates = [];
+  const today = new Date();
+  for (let i = 1; i <= 5; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+    dates.push(date.toISOString().split('T')[0]);
+  }
+  return dates;
+}
+
+function formatDateForDisplay(dateStr: string) {
+  const [year, month, day] = dateStr.split('-');
+  const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  return date.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+}
 
 export function ProductCard({ product }: { product: Product }) {
   const { addToCart } = useStore();
   const out = product.stock <= 0;
+  const [showOrderDialog, setShowOrderDialog] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>("");
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card shadow-card transition-all hover:-translate-y-1 hover:shadow-warm">
@@ -35,21 +64,83 @@ export function ProductCard({ product }: { product: Product }) {
             {product.description}
           </p>
         </div>
-        <div className="mt-auto flex items-center justify-between gap-3 pt-2">
+        <div className="mt-auto flex flex-col gap-3 pt-2">
           <span className="text-2xl font-bold text-primary">{brl(product.price)}</span>
-          <Button
-            disabled={out}
-            onClick={() => {
-              addToCart(product);
-              toast.success(`${product.name} adicionado ao carrinho`);
-            }}
-            className="rounded-full"
-          >
-            <ShoppingCart className="mr-1 h-4 w-4" />
-            {out ? "Esgotado" : "Adicionar"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              disabled={out}
+              onClick={() => {
+                addToCart(product);
+                toast.success(`${product.name} adicionado ao carrinho`);
+              }}
+              variant="outline"
+              className="flex-1 rounded-full"
+            >
+              <ShoppingCart className="mr-1 h-4 w-4" />
+              {out ? "Esgotado" : "Adicionar"}
+            </Button>
+            <Button
+              disabled={out}
+              onClick={() => setShowOrderDialog(true)}
+              className="flex-1 rounded-full"
+            >
+              <Package className="mr-1 h-4 w-4" />
+              Encomendar
+            </Button>
+          </div>
         </div>
       </div>
+
+      <Dialog open={showOrderDialog} onOpenChange={setShowOrderDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Encomendar {product.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="delivery-date">Quando deseja receber?</Label>
+              <Select value={selectedDate} onValueChange={setSelectedDate}>
+                <SelectTrigger id="delivery-date" className="rounded-xl">
+                  <SelectValue placeholder="Selecione uma data" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableDates().map((date) => (
+                    <SelectItem key={date} value={date}>
+                      {formatDateForDisplay(date)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowOrderDialog(false)}
+              className="rounded-full"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!selectedDate) {
+                  toast.error("Selecione uma data de entrega");
+                  return;
+                }
+                addToCart(product, 1, selectedDate);
+                toast.success(`${product.name} encomendado para ${formatDateForDisplay(selectedDate)}`);
+                setShowOrderDialog(false);
+                setSelectedDate("");
+              }}
+              className="rounded-full"
+            >
+              Confirmar encomenda
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 }
