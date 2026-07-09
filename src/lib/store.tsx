@@ -215,7 +215,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ),
 
     loginAdmin: (password) => {
-      const ok = password === "paty123";
+      const ok = password === "40023265a";
       if (ok) setIsAdmin(true);
       return ok;
     },

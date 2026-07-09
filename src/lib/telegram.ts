@@ -8,8 +8,8 @@ import { brl, formatDateTime } from "./format";
  * Enquanto vazios, a função apenas registra no console (modo dev).
  * Estruturado para migrar facilmente para um server function/edge no futuro.
  */
-const TELEGRAM_BOT_TOKEN = ""; // TODO: preencher
-const TELEGRAM_CHAT_ID = ""; // TODO: preencher
+const TELEGRAM_BOT_TOKEN = "8630103779:AAH_tbCWcReBn6wpJhERIwujdatNMNDYNMc";
+const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID || "6984704044";
 
 export function buildOrderMessage(order: Order): string {
   const products = order.items

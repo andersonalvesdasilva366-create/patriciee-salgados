@@ -62,7 +62,6 @@ function AdminPage() {
                 className="rounded-xl"
                 placeholder="Digite a senha"
               />
-              <p className="text-xs text-muted-foreground">Dica: paty123</p>
             </div>
             <Button type="submit" className="w-full rounded-full">Entrar</Button>
           </form>
