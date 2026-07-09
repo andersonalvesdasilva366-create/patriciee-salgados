@@ -51,6 +51,74 @@ type Ctx = {
 
 const StoreContext = createContext<Ctx | null>(null);
 
+function normalizeProduct(row: Record<string, unknown>): Product {
+  return {
+    id: String(row.id ?? ""),
+    name: String(row.name ?? ""),
+    description: String(row.description ?? ""),
+    imageUrl: String(
+      (row.imageUrl as string | undefined) ??
+        (row.imageurl as string | undefined) ??
+        (row.image_url as string | undefined) ??
+        "",
+    ),
+    price: Number(row.price ?? 0),
+    stock: Number(row.stock ?? 0),
+    orderBalance: Number(
+      (row.orderBalance as number | undefined) ??
+        (row.orderbalance as number | undefined) ??
+        (row.order_balance as number | undefined) ??
+        0,
+    ),
+  };
+}
+
+function buildProductPayload(
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null },
+  variant: "camel" | "lower" | "snake",
+) {
+  const imageKey = variant === "camel" ? "imageUrl" : variant === "lower" ? "imageurl" : "image_url";
+  const orderBalanceKey = variant === "camel" ? "orderBalance" : variant === "lower" ? "orderbalance" : "order_balance";
+
+  return {
+    ...(values.name !== undefined && { name: values.name }),
+    ...(values.description !== undefined && { description: values.description }),
+    ...(values.imageUrl !== undefined && { [imageKey]: values.imageUrl }),
+    ...(values.price !== undefined && { price: values.price }),
+    ...(values.stock !== undefined && { stock: values.stock }),
+    ...(values.orderBalance !== undefined && { [orderBalanceKey]: values.orderBalance }),
+  };
+}
+
+async function writeProductWithFallback(
+  operation: "insert" | "update",
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null },
+  id?: string,
+) {
+  const payloads = [
+    buildProductPayload(values, "lower"),
+    buildProductPayload(values, "camel"),
+    buildProductPayload(values, "snake"),
+  ];
+
+  let lastError: unknown;
+  for (const payload of payloads) {
+    const baseQuery =
+      operation === "insert"
+        ? supabase.from("products").insert([payload])
+        : supabase.from("products").update(payload).eq("id", id ?? "");
+
+    const { error } = await baseQuery.select();
+    if (!error) return { error: null };
+
+    lastError = error;
+    const message = typeof error.message === "string" ? error.message : "";
+    if (!/column/i.test(message)) break;
+  }
+
+  return { error: lastError };
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -74,14 +142,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error("Error loading products:", error);
         return;
       }
-      setProducts(data || []);
+      setProducts((data || []).map(normalizeProduct));
     } catch (err) {
       console.error("Error loading products:", err);
     }
   };
 
   useEffect(() => {
-    loadProducts();
+    void loadProducts();
   }, []);
 
   // Load orders from Supabase
@@ -91,7 +159,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from("orders")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("createdat", { ascending: false });
       if (error) {
         console.error("Error loading orders:", error);
         return;
@@ -136,24 +204,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addProduct: async (p) => {
       if (typeof window === "undefined") return;
       try {
-        const { error } = await supabase
-          .from("products")
-          .insert([
-            {
-              name: p.name,
-              description: p.description,
-              image_url: p.imageUrl,
-              price: p.price,
-              stock: p.stock,
-              order_balance: p.orderBalance,
-            },
-          ]);
-        
+        const { error } = await writeProductWithFallback("insert", {
+          name: p.name,
+          description: p.description,
+          imageUrl: p.imageUrl,
+          price: p.price,
+          stock: p.stock,
+          orderBalance: p.orderBalance,
+        });
+
         if (error) {
           console.error("Error adding product:", error);
           return;
         }
-        
+
         // Reload products from Supabase
         await loadProducts();
       } catch (err) {
@@ -164,23 +228,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateProduct: async (id, patch) => {
       if (typeof window === "undefined") return;
       try {
-        const { error } = await supabase
-          .from("products")
-          .update({
+        const { error } = await writeProductWithFallback(
+          "update",
+          {
             ...(patch.name !== undefined && { name: patch.name }),
             ...(patch.description !== undefined && { description: patch.description }),
-            ...(patch.imageUrl !== undefined && { image_url: patch.imageUrl }),
+            ...(patch.imageUrl !== undefined && { imageUrl: patch.imageUrl }),
             ...(patch.price !== undefined && { price: patch.price }),
             ...(patch.stock !== undefined && { stock: patch.stock }),
-            ...(patch.orderBalance !== undefined && { order_balance: patch.orderBalance }),
-          })
-          .eq("id", id);
-        
+            ...(patch.orderBalance !== undefined && { orderBalance: patch.orderBalance }),
+          },
+          id,
+        );
+
         if (error) {
           console.error("Error updating product:", error);
           return;
         }
-        
+
         // Reload products from Supabase
         await loadProducts();
       } catch (err) {
@@ -273,7 +338,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               items: order.items,
               total: order.total,
               status: order.status,
-              created_at: order.createdAt,
+              createdat: order.createdAt,
             },
           ]);
         
@@ -289,13 +354,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const orderUsed = inCart.filter((c) => c.kind === "order").reduce((sum, c) => sum + c.quantity, 0);
           
           if (stockUsed > 0 || orderUsed > 0) {
-            await supabase
-              .from("products")
-              .update({
+            await writeProductWithFallback(
+              "update",
+              {
                 stock: Math.max(0, p.stock - stockUsed),
-                order_balance: Math.max(0, (p.orderBalance ?? 0) - orderUsed),
-              })
-              .eq("id", p.id);
+                orderBalance: Math.max(0, (p.orderBalance ?? 0) - orderUsed),
+              },
+              p.id,
+            );
           }
         }
 
@@ -328,7 +394,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const { error } = await supabase
           .from("orders")
-          .update({ status, scheduled_at: scheduledAt })
+          .update({ status, scheduledat: scheduledAt })
           .eq("id", id);
         
         if (error) {

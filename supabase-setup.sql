@@ -7,10 +7,10 @@ CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
-  image_url TEXT,
+  imageurl TEXT,
   price DECIMAL(10, 2) NOT NULL,
   stock INTEGER NOT NULL DEFAULT 0,
-  order_balance INTEGER DEFAULT 0,
+  orderbalance INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
