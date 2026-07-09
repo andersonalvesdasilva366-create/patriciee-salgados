@@ -228,15 +228,19 @@ function ProductsPanel() {
           <ProductDialog
             product={editing}
             onSubmit={async (data) => {
-              if (editing) {
-                await updateProduct(editing.id, data);
-                toast.success("Produto atualizado");
-              } else {
-                await addProduct(data);
-                toast.success("Produto adicionado");
+              try {
+                if (editing) {
+                  await updateProduct(editing.id, data);
+                  toast.success("Produto atualizado");
+                } else {
+                  await addProduct(data);
+                  toast.success("Produto adicionado");
+                }
+                setOpen(false);
+                setEditing(null);
+              } catch (err) {
+                toast.error("Erro ao salvar produto");
               }
-              setOpen(false);
-              setEditing(null);
             }}
           />
         </Dialog>
@@ -272,8 +276,12 @@ function ProductsPanel() {
                   className="rounded-full text-destructive hover:text-destructive"
                   onClick={async () => {
                     if (confirm(`Excluir "${p.name}"?`)) {
-                      await deleteProduct(p.id);
-                      toast.success("Produto excluído");
+                      try {
+                        await deleteProduct(p.id);
+                        toast.success("Produto excluído");
+                      } catch (err) {
+                        toast.error("Erro ao excluir produto");
+                      }
                     }
                   }}
                 >

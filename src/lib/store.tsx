@@ -136,7 +136,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addProduct: async (p) => {
       if (typeof window === "undefined") return;
       try {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from("products")
           .insert([
             {
@@ -147,16 +147,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               stock: p.stock,
               orderBalance: p.orderBalance,
             },
-          ])
-          .select();
+          ]);
         
         if (error) {
           console.error("Error adding product:", error);
           return;
         }
         
-        // Update local state with the data from Supabase (including the generated ID)
-        setProducts((prev) => [...prev, ...(data || [])]);
+        // Reload products from Supabase
+        await loadProducts();
       } catch (err) {
         console.error("Error adding product:", err);
       }
@@ -182,8 +181,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return;
         }
         
-        // Update local state
-        setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+        // Reload products from Supabase
+        await loadProducts();
       } catch (err) {
         console.error("Error updating product:", err);
       }
@@ -202,8 +201,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return;
         }
         
-        // Update local state
-        setProducts((prev) => prev.filter((p) => p.id !== id));
+        // Reload products from Supabase
+        await loadProducts();
       } catch (err) {
         console.error("Error deleting product:", err);
       }
