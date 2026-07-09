@@ -43,7 +43,7 @@ function HomePage() {
           <div className="relative animate-in fade-in zoom-in-95 duration-700">
             <div className="absolute -inset-4 rounded-[2rem] gradient-warm opacity-20 blur-2xl" />
             <img
-              src="https://images.unsplash.com/photo-1625944525533-473f1a3d54e7?w=1200&auto=format&fit=crop"
+              src="https://prnt.sc/GJ0E8UfIUD6O"
               alt="Salgados artesanais"
               className="relative w-full rounded-[2rem] object-cover shadow-glow"
             />

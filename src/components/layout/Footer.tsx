@@ -11,7 +11,6 @@ export function Footer() {
         </p>
         <div className="flex gap-4">
           <Link to="/missao" className="hover:text-primary">Nossa Missão</Link>
-          <Link to="/admin" className="hover:text-primary">Admin</Link>
         </div>
       </div>
     </footer>
