@@ -1,24 +1,98 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Clock, Heart, Sparkles } from "lucide-react";
+import { ProductCard } from "@/components/ProductCard";
+import { useStore } from "@/lib/store";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  component: HomePage,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function HomePage() {
+  const { products } = useStore();
+  const highlights = products.filter((p) => p.stock > 0).slice(0, 3);
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div>
+      {/* Hero */}
+      <section className="relative overflow-hidden">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 md:grid-cols-2 md:items-center md:py-24">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <span className="inline-flex items-center gap-2 rounded-full bg-accent/40 px-4 py-1.5 text-xs font-semibold text-accent-foreground">
+              <Sparkles className="h-3.5 w-3.5" /> Feito com carinho todos os dias
+            </span>
+            <h1 className="mt-5 font-display text-5xl font-extrabold leading-[1.05] md:text-6xl">
+              Sabor caseiro,{" "}
+              <span className="text-gradient-warm">crocância perfeita</span>.
+            </h1>
+            <p className="mt-4 max-w-lg text-lg text-muted-foreground">
+              Salgados artesanais preparados com ingredientes selecionados e muito amor.
+              Encomende agora e receba fresquinho.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button asChild size="lg" className="rounded-full shadow-warm">
+                <Link to="/produtos">
+                  Ver cardápio <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="rounded-full">
+                <Link to="/missao">Nossa missão</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="relative animate-in fade-in zoom-in-95 duration-700">
+            <div className="absolute -inset-4 rounded-[2rem] gradient-warm opacity-20 blur-2xl" />
+            <img
+              src="https://images.unsplash.com/photo-1625944525533-473f1a3d54e7?w=1200&auto=format&fit=crop"
+              alt="Salgados artesanais"
+              className="relative w-full rounded-[2rem] object-cover shadow-glow"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Highlights */}
+      <section className="mx-auto max-w-6xl px-4 py-10">
+        <div className="mb-8 flex items-end justify-between">
+          <div>
+            <h2 className="font-display text-3xl font-bold md:text-4xl">Mais pedidos</h2>
+            <p className="text-muted-foreground">Os queridinhos da galera</p>
+          </div>
+          <Link
+            to="/produtos"
+            className="hidden text-sm font-medium text-primary hover:underline sm:block"
+          >
+            Ver todos →
+          </Link>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {highlights.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      </section>
+
+      {/* Perks */}
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <div className="grid gap-4 md:grid-cols-3">
+          {[
+            { icon: Heart, title: "Feito à mão", text: "Cada salgado é preparado com carinho." },
+            { icon: Sparkles, title: "Ingredientes frescos", text: "Selecionamos o melhor para você." },
+            { icon: Clock, title: "Encomenda rápida", text: "Peça e retire quentinho." },
+          ].map((p) => (
+            <div
+              key={p.title}
+              className="rounded-3xl border border-border/60 bg-card p-6 shadow-card"
+            >
+              <span className="grid h-12 w-12 place-items-center rounded-2xl gradient-warm text-primary-foreground shadow-warm">
+                <p.icon className="h-6 w-6" />
+              </span>
+              <h3 className="mt-4 font-display text-xl font-bold">{p.title}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{p.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
