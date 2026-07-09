@@ -10,7 +10,7 @@ export const Route = createFileRoute("/")({
 
 function HomePage() {
   const { products } = useStore();
-  const highlights = products.filter((p) => p.stock > 0).slice(0, 3);
+  const highlights = products.filter((p) => p.stock > 0 || (p.orderBalance ?? 0) > 0).slice(0, 3);
 
   return (
     <div>

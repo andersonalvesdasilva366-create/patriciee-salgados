@@ -5,7 +5,7 @@ export type Product = {
   imageUrl: string;
   price: number;
   stock: number;
-  allowOrderWithoutStock?: boolean; // Permitir encomenda mesmo sem estoque
+  orderBalance?: number; // Saldo disponível para encomenda
 };
 
 export type CartItem = {
@@ -15,6 +15,7 @@ export type CartItem = {
   price: number;
   quantity: number;
   deliveryDate?: string; // ISO date (YYYY-MM-DD)
+  kind?: "stock" | "order";
 };
 
 export type OrderStatus =

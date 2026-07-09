@@ -44,6 +44,7 @@ const DEFAULT_PRODUCTS: Product[] = [
       "https://images.unsplash.com/photo-1619221882220-947b3d3c8861?w=800&auto=format&fit=crop",
     price: 4.5,
     stock: 0,
+    orderBalance: 8,
   },
   {
     id: uid(),
@@ -91,7 +92,7 @@ type Ctx = {
   deleteProduct: (id: string) => void;
 
   // cart
-  addToCart: (product: Product, qty?: number, deliveryDate?: string) => void;
+  addToCart: (product: Product, qty?: number, deliveryDate?: string, kind?: "stock" | "order") => void;
   removeFromCart: (productId: string) => void;
   setQuantity: (productId: string, qty: number) => void;
   clearCart: () => void;
@@ -151,14 +152,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))),
     deleteProduct: (id) => setProducts((prev) => prev.filter((p) => p.id !== id)),
 
-    addToCart: (product, qty = 1, deliveryDate?: string) =>
+    addToCart: (product, qty = 1, deliveryDate?: string, kind: "stock" | "order" = "stock") =>
       setCart((prev) => {
-        const existing = prev.find((i) => i.productId === product.id && i.deliveryDate === deliveryDate);
-        const maxQty = product.stock;
+        const maxQty = kind === "order" ? (product.orderBalance ?? 0) : product.stock;
+        if (maxQty <= 0) return prev;
+
+        const existing = prev.find((i) => i.productId === product.id && i.kind === kind && i.deliveryDate === deliveryDate);
         if (existing) {
           const nextQty = Math.min(existing.quantity + qty, maxQty);
           return prev.map((i) =>
-            i.productId === product.id && i.deliveryDate === deliveryDate ? { ...i, quantity: nextQty } : i,
+            i.productId === product.id && i.kind === kind && i.deliveryDate === deliveryDate ? { ...i, quantity: nextQty } : i,
           );
         }
         return [
@@ -170,6 +173,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             price: product.price,
             quantity: Math.min(qty, maxQty),
             ...(deliveryDate && { deliveryDate }),
+            kind,
           },
         ];
       }),
@@ -198,11 +202,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       };
       setOrders((prev) => [order, ...prev]);
-      // decrementa estoque
       setProducts((prev) =>
         prev.map((p) => {
-          const inCart = cart.find((c) => c.productId === p.id);
-          return inCart ? { ...p, stock: Math.max(0, p.stock - inCart.quantity) } : p;
+          const inCart = cart.filter((c) => c.productId === p.id);
+          const stockUsed = inCart.filter((c) => c.kind !== "order").reduce((sum, c) => sum + c.quantity, 0);
+          const orderUsed = inCart.filter((c) => c.kind === "order").reduce((sum, c) => sum + c.quantity, 0);
+          return {
+            ...p,
+            stock: Math.max(0, p.stock - stockUsed),
+            orderBalance: Math.max(0, (p.orderBalance ?? 0) - orderUsed),
+          };
         }),
       );
       setCart([]);

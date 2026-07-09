@@ -34,9 +34,10 @@ function formatDateForDisplay(dateStr: string) {
 
 export function ProductCard({ product }: { product: Product }) {
   const { addToCart } = useStore();
-  const out = product.stock <= 0;
-  const canOrderWithoutStock = Boolean(product.allowOrderWithoutStock);
-  const canOrder = out ? canOrderWithoutStock : true;
+  const stockAvailable = product.stock;
+  const orderAvailable = product.orderBalance ?? 0;
+  const canAdd = stockAvailable > 0;
+  const canOrder = stockAvailable > 0 || orderAvailable > 0;
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
 
@@ -49,13 +50,17 @@ export function ProductCard({ product }: { product: Product }) {
           loading="lazy"
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        {out ? (
-          <span className="absolute right-3 top-3 rounded-full bg-foreground/85 px-3 py-1 text-xs font-semibold text-background backdrop-blur">
-            Esgotado
+        {stockAvailable > 0 ? (
+          <span className="absolute right-3 top-3 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground shadow-warm">
+            {stockAvailable} est.
+          </span>
+        ) : orderAvailable > 0 ? (
+          <span className="absolute right-3 top-3 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary backdrop-blur">
+            Encomenda: {orderAvailable}
           </span>
         ) : (
-          <span className="absolute right-3 top-3 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground shadow-warm">
-            {product.stock} un.
+          <span className="absolute right-3 top-3 rounded-full bg-foreground/85 px-3 py-1 text-xs font-semibold text-background backdrop-blur">
+            Esgotado
           </span>
         )}
       </div>
@@ -70,7 +75,7 @@ export function ProductCard({ product }: { product: Product }) {
           <span className="text-2xl font-bold text-primary">{brl(product.price)}</span>
           <div className="flex gap-2">
             <Button
-              disabled={out && !canOrderWithoutStock}
+              disabled={!canAdd}
               onClick={() => {
                 addToCart(product);
                 toast.success(`${product.name} adicionado ao carrinho`);
@@ -79,7 +84,7 @@ export function ProductCard({ product }: { product: Product }) {
               className="flex-1 rounded-full"
             >
               <ShoppingCart className="mr-1 h-4 w-4" />
-              {out ? (canOrderWithoutStock ? "Adicionar" : "Esgotado") : "Adicionar"}
+              {canAdd ? "Adicionar" : "Sem estoque"}
             </Button>
             <Button
               disabled={!canOrder}
@@ -87,7 +92,7 @@ export function ProductCard({ product }: { product: Product }) {
               className="flex-1 rounded-full"
             >
               <Package className="mr-1 h-4 w-4" />
-              {out && !canOrderWithoutStock ? "Indisponível" : "Encomendar"}
+              {canOrder ? "Encomendar" : "Indisponível"}
             </Button>
           </div>
         </div>
@@ -131,7 +136,7 @@ export function ProductCard({ product }: { product: Product }) {
                   toast.error("Selecione uma data de entrega");
                   return;
                 }
-                addToCart(product, 1, selectedDate);
+                addToCart(product, 1, selectedDate, "order");
                 toast.success(`${product.name} encomendado para ${formatDateForDisplay(selectedDate)}`);
                 setShowOrderDialog(false);
                 setSelectedDate("");

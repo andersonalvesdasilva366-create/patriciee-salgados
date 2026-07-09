@@ -37,7 +37,7 @@ function CartPage() {
         <ul className="space-y-4">
           {cart.map((item) => {
             const prod = products.find((p) => p.id === item.productId);
-            const max = prod?.stock ?? item.quantity;
+            const max = item.kind === "order" ? (prod?.orderBalance ?? item.quantity) : (prod?.stock ?? item.quantity);
             return (
               <li
                 key={item.productId}

@@ -254,8 +254,7 @@ function ProductsPanel() {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{p.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {brl(p.price)} · estoque: {p.stock}
-                  {p.allowOrderWithoutStock && <span className="ml-2 inline-block rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium text-primary">Permite encomenda</span>}
+                  {brl(p.price)} · estoque: {p.stock} · encomenda: {p.orderBalance ?? 0}
                 </p>
               </div>
               <div className="flex gap-1">
@@ -302,7 +301,7 @@ function ProductDialog({
     imageUrl: product?.imageUrl ?? "",
     price: product?.price ?? 0,
     stock: product?.stock ?? 0,
-    allowOrderWithoutStock: product?.allowOrderWithoutStock ?? false,
+    orderBalance: product?.orderBalance ?? 0,
   });
 
 
@@ -325,6 +324,7 @@ function ProductDialog({
             imageUrl: form.imageUrl.trim(),
             price: Number(form.price) || 0,
             stock: Math.max(0, Math.floor(Number(form.stock) || 0)),
+            orderBalance: Math.max(0, Math.floor(Number(form.orderBalance) || 0)),
           });
         }}
         className="space-y-4"
@@ -347,21 +347,13 @@ function ProductDialog({
             <Input type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} className="rounded-xl" />
           </div>
           <div className="space-y-2">
-            <Label>Estoque</Label>
+            <Label>Saldo de estoque</Label>
             <Input type="number" min="0" step="1" value={form.stock} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} className="rounded-xl" />
           </div>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 p-3">
-          <input
-            type="checkbox"
-            id="allow-order"
-            checked={form.allowOrderWithoutStock}
-            onChange={(e) => setForm({ ...form, allowOrderWithoutStock: e.target.checked })}
-            className="rounded"
-          />
-          <Label htmlFor="allow-order" className="cursor-pointer text-sm font-normal">
-            Permitir encomenda mesmo sem estoque?
-          </Label>
+        <div className="space-y-2">
+          <Label>Saldo de encomenda</Label>
+          <Input type="number" min="0" step="1" value={form.orderBalance ?? 0} onChange={(e) => setForm({ ...form, orderBalance: Number(e.target.value) })} className="rounded-xl" />
         </div>
         <DialogFooter>
           <Button type="submit" className="rounded-full">Salvar</Button>
