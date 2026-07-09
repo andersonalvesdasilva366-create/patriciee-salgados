@@ -18,14 +18,14 @@ CREATE TABLE IF NOT EXISTS products (
 -- 2. CREATE ORDERS TABLE
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  customerName TEXT NOT NULL,
+  customername TEXT NOT NULL,
   whatsapp TEXT NOT NULL,
   notes TEXT,
   items JSONB NOT NULL,
   total DECIMAL(10, 2) NOT NULL,
   status TEXT NOT NULL DEFAULT 'recebido',
-  scheduled_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  scheduledat TIMESTAMP WITH TIME ZONE,
+  createdat TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 3. ENABLE ROW LEVEL SECURITY

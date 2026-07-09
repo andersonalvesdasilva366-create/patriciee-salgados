@@ -164,7 +164,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error("Error loading orders:", error);
         return;
       }
-      setOrders(data || []);
+      setOrders(
+        (data || []).map((order) => ({
+          id: order.id,
+          customerName: order.customername,
+          whatsapp: order.whatsapp,
+          notes: order.notes,
+          items: order.items,
+          total: order.total,
+          status: order.status,
+          createdAt: order.createdat,
+        })),
+      );
     } catch (err) {
       console.error("Error loading orders:", err);
     }
@@ -332,7 +343,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .insert([
             {
               id: order.id,
-              customerName: order.customerName,
+              customername: order.customerName,
               whatsapp: order.whatsapp,
               notes: order.notes,
               items: order.items,
