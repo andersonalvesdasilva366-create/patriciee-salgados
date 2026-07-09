@@ -28,9 +28,9 @@ type Ctx = {
   isAdmin: boolean;
 
   // products
-  addProduct: (p: Omit<Product, "id">) => void;
-  updateProduct: (id: string, patch: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
+  addProduct: (p: Omit<Product, "id">) => Promise<void>;
+  updateProduct: (id: string, patch: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
 
   // cart
   addToCart: (product: Product, qty?: number, deliveryDate?: string, kind?: "stock" | "order") => void;
@@ -41,8 +41,8 @@ type Ctx = {
   cartCount: number;
 
   // orders
-  createOrder: (data: { customerName: string; whatsapp: string; notes: string }) => Order;
-  updateOrderStatus: (id: string, status: OrderStatus, scheduledAt?: string) => void;
+  createOrder: (data: { customerName: string; whatsapp: string; notes: string }) => Promise<Order | undefined>;
+  updateOrderStatus: (id: string, status: OrderStatus, scheduledAt?: string) => Promise<void>;
 
   // admin
   loginAdmin: (password: string) => boolean;
@@ -66,41 +66,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Load products from Supabase
-  useEffect(() => {
-    const loadProducts = async () => {
-      if (typeof window === "undefined") return;
-      try {
-        const { data, error } = await supabase.from("products").select("*");
-        if (error) {
-          console.error("Error loading products:", error);
-          return;
-        }
-        setProducts(data || []);
-      } catch (err) {
-        console.error("Error loading products:", err);
+  const loadProducts = async () => {
+    if (typeof window === "undefined") return;
+    try {
+      const { data, error } = await supabase.from("products").select("*");
+      if (error) {
+        console.error("Error loading products:", error);
+        return;
       }
-    };
+      setProducts(data || []);
+    } catch (err) {
+      console.error("Error loading products:", err);
+    }
+  };
+
+  useEffect(() => {
     loadProducts();
   }, []);
 
   // Load orders from Supabase
-  useEffect(() => {
-    const loadOrders = async () => {
-      if (typeof window === "undefined") return;
-      try {
-        const { data, error } = await supabase
-          .from("orders")
-          .select("*")
-          .order("createdAt", { ascending: false });
-        if (error) {
-          console.error("Error loading orders:", error);
-          return;
-        }
-        setOrders(data || []);
-      } catch (err) {
-        console.error("Error loading orders:", err);
+  const loadOrders = async () => {
+    if (typeof window === "undefined") return;
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .order("createdAt", { ascending: false });
+      if (error) {
+        console.error("Error loading orders:", error);
+        return;
       }
-    };
+      setOrders(data || []);
+    } catch (err) {
+      console.error("Error loading orders:", err);
+    }
+  };
+
+  useEffect(() => {
     loadOrders();
   }, []);
 
@@ -131,51 +133,80 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     cartTotal,
     cartCount,
 
-    addProduct: (p) => {
-      const newProduct: Product = { ...p, id: uid() };
-      setProducts((prev) => [...prev, newProduct]);
-      // Save to Supabase
-      supabase
-        .from("products")
-        .insert([
-          {
-            id: newProduct.id,
-            name: p.name,
-            description: p.description,
-            imageUrl: p.imageUrl,
-            price: p.price,
-            stock: p.stock,
-            orderBalance: p.orderBalance,
-          },
-        ])
-        .catch((err) => console.error("Error adding product:", err));
+    addProduct: async (p) => {
+      if (typeof window === "undefined") return;
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .insert([
+            {
+              name: p.name,
+              description: p.description,
+              imageUrl: p.imageUrl,
+              price: p.price,
+              stock: p.stock,
+              orderBalance: p.orderBalance,
+            },
+          ])
+          .select();
+        
+        if (error) {
+          console.error("Error adding product:", error);
+          return;
+        }
+        
+        // Update local state with the data from Supabase (including the generated ID)
+        setProducts((prev) => [...prev, ...(data || [])]);
+      } catch (err) {
+        console.error("Error adding product:", err);
+      }
     },
 
-    updateProduct: (id, patch) => {
-      setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
-      // Save to Supabase
-      supabase
-        .from("products")
-        .update({
-          name: patch.name,
-          description: patch.description,
-          imageUrl: patch.imageUrl,
-          price: patch.price,
-          stock: patch.stock,
-          orderBalance: patch.orderBalance,
-        })
-        .eq("id", id)
-        .catch((err) => console.error("Error updating product:", err));
+    updateProduct: async (id, patch) => {
+      if (typeof window === "undefined") return;
+      try {
+        const { error } = await supabase
+          .from("products")
+          .update({
+            ...(patch.name !== undefined && { name: patch.name }),
+            ...(patch.description !== undefined && { description: patch.description }),
+            ...(patch.imageUrl !== undefined && { imageUrl: patch.imageUrl }),
+            ...(patch.price !== undefined && { price: patch.price }),
+            ...(patch.stock !== undefined && { stock: patch.stock }),
+            ...(patch.orderBalance !== undefined && { orderBalance: patch.orderBalance }),
+          })
+          .eq("id", id);
+        
+        if (error) {
+          console.error("Error updating product:", error);
+          return;
+        }
+        
+        // Update local state
+        setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+      } catch (err) {
+        console.error("Error updating product:", err);
+      }
     },
 
-    deleteProduct: (id) => {
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      // Delete from Supabase
-      supabase
-        .from("products")
-        .delete()
-        .eq("id", id)
-        .catch((err) => console.error("Error deleting product:", err));
+    deleteProduct: async (id) => {
+      if (typeof window === "undefined") return;
+      try {
+        const { error } = await supabase
+          .from("products")
+          .delete()
+          .eq("id", id);
+        
+        if (error) {
+          console.error("Error deleting product:", error);
+          return;
+        }
+        
+        // Update local state
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+      } catch (err) {
+        console.error("Error deleting product:", err);
+      }
     },
 
     addToCart: (product, qty = 1, deliveryDate?: string, kind: "stock" | "order" = "stock") =>
@@ -216,7 +247,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     clearCart: () => setCart([]),
 
-    createOrder: ({ customerName, whatsapp, notes }) => {
+    createOrder: async ({ customerName, whatsapp, notes }) => {
+      if (typeof window === "undefined") return undefined;
+      
       const order: Order = {
         id: uid(),
         customerName,
@@ -227,69 +260,90 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         status: "recebido",
         createdAt: new Date().toISOString(),
       };
-      setOrders((prev) => [order, ...prev]);
-      setProducts((prev) =>
-        prev.map((p) => {
+
+      try {
+        // Save order to Supabase
+        const { error: orderError } = await supabase
+          .from("orders")
+          .insert([
+            {
+              id: order.id,
+              customerName: order.customerName,
+              whatsapp: order.whatsapp,
+              notes: order.notes,
+              items: order.items,
+              total: order.total,
+              status: order.status,
+              createdAt: order.createdAt,
+            },
+          ]);
+        
+        if (orderError) {
+          console.error("Error saving order:", orderError);
+          return undefined;
+        }
+
+        // Update products in Supabase
+        for (const p of products) {
           const inCart = cart.filter((c) => c.productId === p.id);
           const stockUsed = inCart.filter((c) => c.kind !== "order").reduce((sum, c) => sum + c.quantity, 0);
           const orderUsed = inCart.filter((c) => c.kind === "order").reduce((sum, c) => sum + c.quantity, 0);
-          return {
-            ...p,
-            stock: Math.max(0, p.stock - stockUsed),
-            orderBalance: Math.max(0, (p.orderBalance ?? 0) - orderUsed),
-          };
-        }),
-      );
-      setCart([]);
+          
+          if (stockUsed > 0 || orderUsed > 0) {
+            await supabase
+              .from("products")
+              .update({
+                stock: Math.max(0, p.stock - stockUsed),
+                orderBalance: Math.max(0, (p.orderBalance ?? 0) - orderUsed),
+              })
+              .eq("id", p.id);
+          }
+        }
 
-      // Save order to Supabase
-      supabase
-        .from("orders")
-        .insert([
-          {
-            id: order.id,
-            customerName: order.customerName,
-            whatsapp: order.whatsapp,
-            notes: order.notes,
-            items: order.items,
-            total: order.total,
-            status: order.status,
-            createdAt: order.createdAt,
-          },
-        ])
-        .catch((err) => console.error("Error saving order:", err));
-
-      // Update products in Supabase
-      products.forEach((p) => {
-        const inCart = cart.filter((c) => c.productId === p.id);
-        const stockUsed = inCart.filter((c) => c.kind !== "order").reduce((sum, c) => sum + c.quantity, 0);
-        const orderUsed = inCart.filter((c) => c.kind === "order").reduce((sum, c) => sum + c.quantity, 0);
-        if (stockUsed > 0 || orderUsed > 0) {
-          supabase
-            .from("products")
-            .update({
+        // Update local state
+        setOrders((prev) => [order, ...prev]);
+        setProducts((prev) =>
+          prev.map((p) => {
+            const inCart = cart.filter((c) => c.productId === p.id);
+            const stockUsed = inCart.filter((c) => c.kind !== "order").reduce((sum, c) => sum + c.quantity, 0);
+            const orderUsed = inCart.filter((c) => c.kind === "order").reduce((sum, c) => sum + c.quantity, 0);
+            return {
+              ...p,
               stock: Math.max(0, p.stock - stockUsed),
               orderBalance: Math.max(0, (p.orderBalance ?? 0) - orderUsed),
-            })
-            .eq("id", p.id)
-            .catch((err) => console.error("Error updating product stock:", err));
-        }
-      });
+            };
+          }),
+        );
+        setCart([]);
 
-      void sendOrderToTelegram(order);
-      return order;
+        void sendOrderToTelegram(order);
+        return order;
+      } catch (err) {
+        console.error("Error creating order:", err);
+        return undefined;
+      }
     },
 
-    updateOrderStatus: (id, status, scheduledAt) => {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === id ? { ...o, status, scheduledAt } : o)),
-      );
-      // Save to Supabase
-      supabase
-        .from("orders")
-        .update({ status, scheduledAt })
-        .eq("id", id)
-        .catch((err) => console.error("Error updating order status:", err));
+    updateOrderStatus: async (id, status, scheduledAt) => {
+      if (typeof window === "undefined") return;
+      try {
+        const { error } = await supabase
+          .from("orders")
+          .update({ status, scheduledAt })
+          .eq("id", id);
+        
+        if (error) {
+          console.error("Error updating order status:", error);
+          return;
+        }
+        
+        // Update local state
+        setOrders((prev) =>
+          prev.map((o) => (o.id === id ? { ...o, status, scheduledAt } : o)),
+        );
+      } catch (err) {
+        console.error("Error updating order status:", err);
+      }
     },
 
     loginAdmin: (password) => {

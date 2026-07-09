@@ -227,12 +227,12 @@ function ProductsPanel() {
           </DialogTrigger>
           <ProductDialog
             product={editing}
-            onSubmit={(data) => {
+            onSubmit={async (data) => {
               if (editing) {
-                updateProduct(editing.id, data);
+                await updateProduct(editing.id, data);
                 toast.success("Produto atualizado");
               } else {
-                addProduct(data);
+                await addProduct(data);
                 toast.success("Produto adicionado");
               }
               setOpen(false);
@@ -270,9 +270,9 @@ function ProductsPanel() {
                   size="icon"
                   variant="ghost"
                   className="rounded-full text-destructive hover:text-destructive"
-                  onClick={() => {
+                  onClick={async () => {
                     if (confirm(`Excluir "${p.name}"?`)) {
-                      deleteProduct(p.id);
+                      await deleteProduct(p.id);
                       toast.success("Produto excluído");
                     }
                   }}
@@ -293,7 +293,7 @@ function ProductDialog({
   onSubmit,
 }: {
   product: Product | null;
-  onSubmit: (data: Omit<Product, "id">) => void;
+  onSubmit: (data: Omit<Product, "id">) => Promise<void>;
 }) {
   const [form, setForm] = useState<Omit<Product, "id">>({
     name: product?.name ?? "",
@@ -311,13 +311,13 @@ function ProductDialog({
         <DialogTitle>{product ? "Editar produto" : "Novo produto"}</DialogTitle>
       </DialogHeader>
       <form
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           if (!form.name.trim() || !form.imageUrl.trim()) {
             toast.error("Preencha nome e imagem");
             return;
           }
-          onSubmit({
+          await onSubmit({
             ...form,
             name: form.name.trim(),
             description: form.description.trim(),

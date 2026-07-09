@@ -37,7 +37,7 @@ function CheckoutPage() {
     );
   }
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = schema.safeParse(form);
     if (!parsed.success) {
@@ -45,8 +45,13 @@ function CheckoutPage() {
       return;
     }
     setSubmitting(true);
-    const order = createOrder(parsed.data);
-    navigate({ to: "/pedido/$id", params: { id: order.id } });
+    const order = await createOrder(parsed.data);
+    if (order) {
+      navigate({ to: "/pedido/$id", params: { id: order.id } });
+    } else {
+      toast.error("Erro ao criar pedido");
+      setSubmitting(false);
+    }
   };
 
   return (
