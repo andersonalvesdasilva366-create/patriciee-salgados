@@ -14,7 +14,7 @@ const DEFAULT_FEEDBACKS: ProductFeedback[] = [
   {
     id: "bot-1",
     productId: "__global__",
-    name: "Bot • Paty",
+    name: "Marina Souza",
     comment: "Entrega rápida e sabor impecável!",
     approved: true,
     isBot: true,
@@ -23,7 +23,7 @@ const DEFAULT_FEEDBACKS: ProductFeedback[] = [
   {
     id: "bot-2",
     productId: "__global__",
-    name: "Bot • Paty",
+    name: "Bruno Costa",
     comment: "Produtos sempre bem embalados e com ótimo atendimento.",
     approved: true,
     isBot: true,
