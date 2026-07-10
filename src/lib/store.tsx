@@ -1,11 +1,35 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { CartItem, Order, OrderStatus, Product } from "./types";
+import type { CartItem, ExpenseEntry, Order, OrderStatus, Product, ProductFeedback } from "./types";
 import { uid } from "./format";
 import { sendOrderToTelegram } from "./telegram";
 import { supabase } from "./supabase";
 
 const KEY_CART = "sdp:cart";
 const KEY_ADMIN = "sdp:admin";
+const KEY_FEEDBACKS = "sdp:feedbacks";
+const KEY_EXPENSES = "sdp:expenses";
+const KEY_SALES_TARGET = "sdp:salesTarget";
+
+const DEFAULT_FEEDBACKS: ProductFeedback[] = [
+  {
+    id: "bot-1",
+    productId: "__global__",
+    name: "Bot • Paty",
+    comment: "Entrega rápida e sabor impecável!",
+    approved: true,
+    isBot: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "bot-2",
+    productId: "__global__",
+    name: "Bot • Paty",
+    comment: "Produtos sempre bem embalados e com ótimo atendimento.",
+    approved: true,
+    isBot: true,
+    createdAt: new Date().toISOString(),
+  },
+];
 
 function load<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -26,6 +50,9 @@ type Ctx = {
   cart: CartItem[];
   orders: Order[];
   isAdmin: boolean;
+  feedbacks: ProductFeedback[];
+  expenses: ExpenseEntry[];
+  salesTarget: number;
 
   // products
   addProduct: (p: Omit<Product, "id">) => Promise<void>;
@@ -48,6 +75,11 @@ type Ctx = {
   // admin
   loginAdmin: (password: string) => boolean;
   logoutAdmin: () => void;
+  submitProductFeedback: (productId: string, name: string, comment: string) => Promise<void>;
+  approveFeedback: (id: string, approved: boolean) => Promise<void>;
+  addExpense: (expense: Omit<ExpenseEntry, "id">) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
+  setSalesTarget: (value: number) => void;
 };
 
 const StoreContext = createContext<Ctx | null>(null);
@@ -83,11 +115,29 @@ function normalizeProduct(row: Record<string, unknown>): Product {
         (row.promotion as number | undefined) ??
         false,
     ),
+    offerLabel: String(
+      (row.offerLabel as string | undefined) ??
+        (row.offerlabel as string | undefined) ??
+        (row.offer_label as string | undefined) ??
+        "",
+    ),
+    highlightDescription: String(
+      (row.highlightDescription as string | undefined) ??
+        (row.highlightdescription as string | undefined) ??
+        (row.highlight_description as string | undefined) ??
+        "",
+    ),
+    featured: Boolean(
+      (row.featured as boolean | undefined) ??
+        (row.Featured as boolean | undefined) ??
+        (row.featured as number | undefined) ??
+        false,
+    ),
   };
 }
 
 function buildProductPayload(
-  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean },
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean },
   variant: "camel" | "lower" | "snake",
 ) {
   const imageKey = variant === "camel" ? "imageUrl" : variant === "lower" ? "imageurl" : "image_url";
@@ -109,7 +159,7 @@ function buildProductPayload(
 
 async function writeProductWithFallback(
   operation: "insert" | "update",
-  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean },
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean },
   id?: string,
 ) {
   const payloads = [
@@ -141,12 +191,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [feedbacks, setFeedbacks] = useState<ProductFeedback[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
+  const [salesTarget, setSalesTarget] = useState(5000);
   const [hydrated, setHydrated] = useState(false);
 
   // Load cart and admin from localStorage
   useEffect(() => {
     setCart(load<CartItem[]>(KEY_CART, []));
     setIsAdmin(load<boolean>(KEY_ADMIN, false));
+    setFeedbacks(load<ProductFeedback[]>(KEY_FEEDBACKS, DEFAULT_FEEDBACKS));
+    setExpenses(load<ExpenseEntry[]>(KEY_EXPENSES, []));
+    setSalesTarget(load<number>(KEY_SALES_TARGET, 5000));
     setHydrated(true);
   }, []);
 
@@ -214,6 +270,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (hydrated) save(KEY_ADMIN, isAdmin);
   }, [isAdmin, hydrated]);
 
+  useEffect(() => {
+    if (hydrated) save(KEY_FEEDBACKS, feedbacks);
+  }, [feedbacks, hydrated]);
+
+  useEffect(() => {
+    if (hydrated) save(KEY_EXPENSES, expenses);
+  }, [expenses, hydrated]);
+
+  useEffect(() => {
+    if (hydrated) save(KEY_SALES_TARGET, salesTarget);
+  }, [salesTarget, hydrated]);
+
   const cartTotal = useMemo(
     () => cart.reduce((s, i) => s + i.price * i.quantity, 0),
     [cart],
@@ -228,6 +296,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     cart,
     orders,
     isAdmin,
+    feedbacks,
+    expenses,
+    salesTarget,
     cartTotal,
     cartCount,
 
@@ -245,13 +316,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           promotion: p.promotion,
         });
 
+        const optimisticProduct: Product = {
+          id: uid(),
+          name: p.name,
+          description: p.description,
+          imageUrl: p.imageUrl,
+          price: p.price,
+          stock: p.stock,
+          orderBalance: p.orderBalance,
+          partner: p.partner,
+          promotion: p.promotion,
+          offerLabel: p.offerLabel,
+          highlightDescription: p.highlightDescription,
+          featured: p.featured,
+        };
+
+        setProducts((prev) => [optimisticProduct, ...prev]);
+
         if (error) {
           console.error("Error adding product:", error);
           return;
         }
-
-        // Reload products from Supabase
-        await loadProducts();
       } catch (err) {
         console.error("Error adding product:", err);
       }
@@ -275,13 +360,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           id,
         );
 
+        setProducts((prev) => prev.map((product) => (product.id === id ? { ...product, ...patch } : product)));
+
         if (error) {
           console.error("Error updating product:", error);
           return;
         }
-
-        // Reload products from Supabase
-        await loadProducts();
       } catch (err) {
         console.error("Error updating product:", err);
       }
@@ -466,6 +550,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error("Error submitting order feedback:", err);
       }
     },
+
+    submitProductFeedback: async (productId, name, comment) => {
+      const entry: ProductFeedback = {
+        id: uid(),
+        productId,
+        name: name.trim(),
+        comment: comment.trim(),
+        approved: false,
+        isBot: false,
+        createdAt: new Date().toISOString(),
+      };
+      setFeedbacks((prev) => [entry, ...prev]);
+    },
+
+    approveFeedback: async (id, approved) => {
+      setFeedbacks((prev) => prev.map((item) => (item.id === id ? { ...item, approved } : item)));
+    },
+
+    addExpense: async (expense) => {
+      const entry: ExpenseEntry = {
+        id: uid(),
+        description: expense.description.trim(),
+        amount: Number(expense.amount) || 0,
+        category: expense.category,
+        paidAt: expense.paidAt,
+        expectedReturnAt: expense.expectedReturnAt,
+        expectedProfit: expense.expectedProfit,
+        notes: expense.notes,
+      };
+      setExpenses((prev) => [entry, ...prev]);
+    },
+
+    deleteExpense: async (id) => {
+      setExpenses((prev) => prev.filter((item) => item.id !== id));
+    },
+
+    setSalesTarget: (value) => setSalesTarget(value),
 
     loginAdmin: (password) => {
       const ok = password === "40023265a";

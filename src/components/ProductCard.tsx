@@ -1,7 +1,9 @@
 import type { Product } from "@/lib/types";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Package } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { ShoppingCart, Package, MessageCircleMore } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -33,7 +35,7 @@ function formatDateForDisplay(dateStr: string) {
 }
 
 export function ProductCard({ product }: { product: Product }) {
-  const { addToCart } = useStore();
+  const { addToCart, feedbacks, submitProductFeedback } = useStore();
   const stockAvailable = product.stock;
   const orderAvailable = product.orderBalance ?? 0;
   const canAdd = stockAvailable > 0;
@@ -41,7 +43,22 @@ export function ProductCard({ product }: { product: Product }) {
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [orderAddedMessage, setOrderAddedMessage] = useState<string>("");
-  const badges = [product.partner ? "Parceiro" : null, product.promotion ? "Promoção" : null].filter(Boolean) as string[];
+  const [feedbackName, setFeedbackName] = useState("");
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const badges = [product.partner ? "Parceiro" : null, product.promotion ? "Promoção" : null, product.featured ? "Destaque" : null, product.offerLabel ? product.offerLabel : null].filter(Boolean) as string[];
+  const approvedFeedback = feedbacks.filter((item) => item.approved && (item.productId === product.id || item.productId === "__global__"));
+
+  const handleFeedbackSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!feedbackName.trim() || !feedbackComment.trim()) {
+      toast.error("Informe nome e comentário");
+      return;
+    }
+    await submitProductFeedback(product.id, feedbackName, feedbackComment);
+    setFeedbackName("");
+    setFeedbackComment("");
+    toast.success("Comentário enviado para análise do admin.");
+  };
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card shadow-card transition-all hover:-translate-y-1 hover:shadow-warm">
@@ -86,6 +103,12 @@ export function ProductCard({ product }: { product: Product }) {
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
             {product.description}
           </p>
+          {product.highlightDescription && (
+            <div className="mt-3 rounded-2xl border border-primary/20 bg-primary/10 p-3 text-sm text-primary">
+              <p className="font-semibold">{product.offerLabel || "Destaque"}</p>
+              <p className="mt-1">{product.highlightDescription}</p>
+            </div>
+          )}
         </div>
         <div className="mt-auto flex flex-col gap-3 pt-2">
           <span className="text-2xl font-bold text-primary">{brl(product.price)}</span>
@@ -170,6 +193,34 @@ export function ProductCard({ product }: { product: Product }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <div className="border-t border-border/60 bg-secondary/30 p-5">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <MessageCircleMore className="h-4 w-4 text-primary" /> Comentários
+        </div>
+        {approvedFeedback.length > 0 ? (
+          <div className="mt-3 space-y-2">
+            {approvedFeedback.slice(0, 3).map((comment) => (
+              <div key={comment.id} className="rounded-2xl border border-border/60 bg-background/70 p-2.5 text-sm">
+                <p className="font-medium">{comment.name}</p>
+                <p className="mt-1 text-muted-foreground">{comment.comment}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">Ainda não há comentários aprovados para este produto.</p>
+        )}
+        <form onSubmit={handleFeedbackSubmit} className="mt-4 space-y-2">
+          <div className="space-y-2">
+            <Label htmlFor={`feedback-name-${product.id}`}>Seu nome</Label>
+            <Input id={`feedback-name-${product.id}`} value={feedbackName} onChange={(e) => setFeedbackName(e.target.value)} placeholder="Digite seu nome" className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`feedback-comment-${product.id}`}>Seu comentário</Label>
+            <Textarea id={`feedback-comment-${product.id}`} value={feedbackComment} onChange={(e) => setFeedbackComment(e.target.value)} placeholder="Compartilhe sua experiência" className="rounded-xl" />
+          </div>
+          <Button type="submit" className="w-full rounded-full">Enviar comentário</Button>
+        </form>
+      </div>
       {orderAddedMessage && (
         <div className="border-t border-border/60 bg-green-50 px-5 py-3 text-sm text-green-900">
           {orderAddedMessage}

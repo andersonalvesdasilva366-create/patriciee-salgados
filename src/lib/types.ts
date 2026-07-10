@@ -8,6 +8,30 @@ export type Product = {
   orderBalance?: number; // Saldo disponível para encomenda
   partner?: boolean;
   promotion?: boolean;
+  offerLabel?: string;
+  highlightDescription?: string;
+  featured?: boolean;
+};
+
+export type ProductFeedback = {
+  id: string;
+  productId: string;
+  name: string;
+  comment: string;
+  approved: boolean;
+  isBot: boolean;
+  createdAt: string;
+};
+
+export type ExpenseEntry = {
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  paidAt: string;
+  expectedReturnAt?: string;
+  expectedProfit?: number;
+  notes?: string;
 };
 
 export type CartItem = {
