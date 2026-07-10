@@ -319,8 +319,8 @@ function ProductDialog({ product, onSubmit }: { product: Product | null; onSubmi
 
 function FeedbacksPanel() {
   const { feedbacks, approveFeedback } = useStore();
-  const pending = feedbacks.filter((item) => !item.approved);
-  const approved = feedbacks.filter((item) => item.approved);
+  const pending = feedbacks.filter((item) => !item.approved && !item.isBot);
+  const approved = feedbacks.filter((item) => item.approved && !item.isBot);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">

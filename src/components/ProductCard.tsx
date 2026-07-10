@@ -46,7 +46,7 @@ export function ProductCard({ product }: { product: Product }) {
   const [feedbackName, setFeedbackName] = useState("");
   const [feedbackComment, setFeedbackComment] = useState("");
   const badges = [product.partner ? "Parceiro" : null, product.promotion ? "Promoção" : null, product.featured ? "Destaque" : null, product.offerLabel ? product.offerLabel : null].filter(Boolean) as string[];
-  const approvedFeedback = feedbacks.filter((item) => item.approved && item.productId === product.id);
+  const approvedFeedback = feedbacks.filter((item) => item.approved && !item.isBot && item.productId === product.id);
 
   const handleFeedbackSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

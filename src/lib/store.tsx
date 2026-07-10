@@ -10,26 +10,31 @@ const KEY_FEEDBACKS = "sdp:feedbacks";
 const KEY_EXPENSES = "sdp:expenses";
 const KEY_SALES_TARGET = "sdp:salesTarget";
 
-const DEFAULT_FEEDBACKS: ProductFeedback[] = [
-  {
-    id: "bot-1",
-    productId: "__global__",
-    name: "Marina Souza",
-    comment: "Entrega rápida e sabor impecável!",
-    approved: true,
-    isBot: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "bot-2",
-    productId: "__global__",
-    name: "Bruno Costa",
-    comment: "Produtos sempre bem embalados e com ótimo atendimento.",
-    approved: true,
-    isBot: true,
-    createdAt: new Date().toISOString(),
-  },
-];
+const DEFAULT_FEEDBACKS: ProductFeedback[] = [];
+
+function sanitizeFeedbacks(value: unknown): ProductFeedback[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const item = entry as Partial<ProductFeedback>;
+    const name = typeof item.name === "string" ? item.name.trim() : "";
+    const comment = typeof item.comment === "string" ? item.comment.trim() : "";
+    const id = typeof item.id === "string" ? item.id : uid();
+    const productId = typeof item.productId === "string" ? item.productId : "";
+
+    if (!name || !comment) return [];
+    return [{
+      id,
+      productId,
+      name,
+      comment,
+      approved: Boolean(item.approved),
+      isBot: Boolean(item.isBot),
+      createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString(),
+    }];
+  }).filter((item) => !item.isBot);
+}
 
 function load<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -200,7 +205,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setCart(load<CartItem[]>(KEY_CART, []));
     setIsAdmin(load<boolean>(KEY_ADMIN, false));
-    setFeedbacks(load<ProductFeedback[]>(KEY_FEEDBACKS, DEFAULT_FEEDBACKS));
+    setFeedbacks(sanitizeFeedbacks(load<unknown>(KEY_FEEDBACKS, DEFAULT_FEEDBACKS)));
     setExpenses(load<ExpenseEntry[]>(KEY_EXPENSES, []));
     setSalesTarget(load<number>(KEY_SALES_TARGET, 5000));
     setHydrated(true);
