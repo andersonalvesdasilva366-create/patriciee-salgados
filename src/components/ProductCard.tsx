@@ -46,7 +46,7 @@ export function ProductCard({ product }: { product: Product }) {
   const [feedbackName, setFeedbackName] = useState("");
   const [feedbackComment, setFeedbackComment] = useState("");
   const badges = [product.partner ? "Parceiro" : null, product.promotion ? "Promoção" : null, product.featured ? "Destaque" : null, product.offerLabel ? product.offerLabel : null].filter(Boolean) as string[];
-  const approvedFeedback = feedbacks.filter((item) => item.approved && (item.productId === product.id || item.productId === "__global__"));
+  const approvedFeedback = feedbacks.filter((item) => item.approved && item.productId === product.id);
 
   const handleFeedbackSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -199,15 +199,12 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
         {approvedFeedback.length > 0 ? (
           <div className="mt-3 space-y-2">
-            {approvedFeedback.slice(0, 3).map((comment) => {
-              const displayName = comment.isBot ? "Avaliação da loja" : comment.name;
-              return (
-                <div key={comment.id} className="rounded-2xl border border-border/60 bg-background/70 p-2.5 text-sm">
-                  <p className="font-medium">{displayName}</p>
-                  <p className="mt-1 text-muted-foreground">{comment.comment}</p>
-                </div>
-              );
-            })}
+            {approvedFeedback.slice(0, 3).map((comment) => (
+              <div key={comment.id} className="rounded-2xl border border-border/60 bg-background/70 p-2.5 text-sm">
+                <p className="font-medium">{comment.name}</p>
+                <p className="mt-1 text-muted-foreground">{comment.comment}</p>
+              </div>
+            ))}
           </div>
         ) : (
           <p className="mt-3 text-sm text-muted-foreground">Ainda não há comentários aprovados para este produto.</p>
