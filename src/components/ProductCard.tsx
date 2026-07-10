@@ -197,7 +197,7 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <MessageCircleMore className="h-4 w-4 text-primary" /> Comentários
         </div>
-        {approvedFeedback.length > 0 ? (
+        {approvedFeedback.length > 0 && (
           <div className="mt-3 space-y-2">
             {approvedFeedback.slice(0, 3).map((comment) => (
               <div key={comment.id} className="rounded-2xl border border-border/60 bg-background/70 p-2.5 text-sm">
@@ -206,8 +206,6 @@ export function ProductCard({ product }: { product: Product }) {
               </div>
             ))}
           </div>
-        ) : (
-          <p className="mt-3 text-sm text-muted-foreground">Ainda não há comentários aprovados para este produto.</p>
         )}
         <form onSubmit={handleFeedbackSubmit} className="mt-4 space-y-2">
           <div className="space-y-2">
