@@ -7,6 +7,7 @@ export type Product = {
   stock: number;
   orderBalance?: number; // Saldo disponível para encomenda
   partner?: boolean;
+  promotion?: boolean;
 };
 
 export type CartItem = {

@@ -7,8 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";import { Switch } from "@/components/ui/switch";import { Badge } from "@/components/ui/badge";
 import { brl, formatDateTime } from "@/lib/format";
 import type { Order, OrderStatus, Product } from "@/lib/types";
 import { Edit, LogOut, Plus, Trash2 } from "lucide-react";
@@ -395,6 +394,8 @@ function ProductDialog({
     price: product?.price ?? 0,
     stock: product?.stock ?? 0,
     orderBalance: product?.orderBalance ?? 0,
+    partner: product?.partner ?? false,
+    promotion: product?.promotion ?? false,
   });
 
 
@@ -447,6 +448,22 @@ function ProductDialog({
         <div className="space-y-2">
           <Label>Saldo de encomenda</Label>
           <Input type="number" min="0" step="1" value={form.orderBalance ?? 0} onChange={(e) => setForm({ ...form, orderBalance: Number(e.target.value) })} className="rounded-xl" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-secondary/50 p-4">
+            <Switch checked={form.promotion} onCheckedChange={(checked) => setForm({ ...form, promotion: checked })} />
+            <div>
+              <p className="text-sm font-semibold">Exibir em Promoções</p>
+              <p className="text-xs text-muted-foreground">Mostra este produto na aba de promoções.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-secondary/50 p-4">
+            <Switch checked={form.partner} onCheckedChange={(checked) => setForm({ ...form, partner: checked })} />
+            <div>
+              <p className="text-sm font-semibold">Produto parceiro</p>
+              <p className="text-xs text-muted-foreground">Destaca este item como parceiro.</p>
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button type="submit" className="rounded-full">Salvar</Button>

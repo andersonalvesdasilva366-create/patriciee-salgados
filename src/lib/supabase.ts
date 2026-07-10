@@ -18,6 +18,7 @@ export type Database = {
           stock: number;
           orderBalance: number | null;
           partner: boolean | null;
+          promotion: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -29,6 +30,7 @@ export type Database = {
           stock?: number;
           orderBalance?: number | null;
           partner?: boolean;
+          promotion?: boolean;
         };
         Update: {
           name?: string;
@@ -38,6 +40,7 @@ export type Database = {
           stock?: number;
           orderBalance?: number | null;
           partner?: boolean;
+          promotion?: boolean;
         };
       };
       orders: {

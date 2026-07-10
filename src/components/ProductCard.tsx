@@ -41,12 +41,22 @@ export function ProductCard({ product }: { product: Product }) {
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [orderAddedMessage, setOrderAddedMessage] = useState<string>("");
+  const badges = [product.partner ? "Parceiro" : null, product.promotion ? "Promoção" : null].filter(Boolean) as string[];
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card shadow-card transition-all hover:-translate-y-1 hover:shadow-warm">
-      {product.partner && (
-        <div className="absolute right-4 top-4 z-10 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary shadow-card">
-          Parceiro
+      {badges.length > 0 && (
+        <div className="absolute left-3 top-3 z-10 flex flex-wrap gap-2">
+          {product.partner && (
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary shadow-card">
+              Parceiro
+            </span>
+          )}
+          {product.promotion && (
+            <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-700 shadow-card">
+              Promoção
+            </span>
+          )}
         </div>
       )}
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">

@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ProductCard } from "@/components/ProductCard";
+import { useStore } from "@/lib/store";
 import { Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/promocoes")({
@@ -7,11 +9,14 @@ export const Route = createFileRoute("/promocoes")({
 });
 
 function PromocoesPage() {
+  const { products } = useStore();
+  const promoProducts = products.filter((p) => p.promotion);
+
   return (
-    <div className="mx-auto max-w-4xl px-4 py-16">
+    <div className="mx-auto max-w-6xl px-4 py-16">
       <div className="mb-10 text-center">
         <h1 className="font-display text-4xl font-bold md:text-5xl">Promoções</h1>
-        <p className="mt-2 text-muted-foreground">Ofertas especiais e combos imperdíveis</p>
+        <p className="mt-2 text-muted-foreground">Ofertas especiais e produtos em destaque</p>
       </div>
 
       <div className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-card p-10 text-center shadow-warm">
@@ -21,24 +26,25 @@ function PromocoesPage() {
             <Sparkles className="h-7 w-7" />
           </div>
           <h2 className="mt-6 font-display text-2xl font-bold">
-            Em breve teremos promoções incríveis para você! 🎉
+            Produtos em destaque para você! 🎉
           </h2>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-            Estamos preparando ofertas especiais, combos e cupons de desconto.
-            Fique de olho por aqui!
+            Marque os produtos que quiser destacar aqui na aba de promoções.
           </p>
         </div>
       </div>
 
-      {/* Placeholder para banners futuros */}
-      <div className="mt-10 grid gap-4 md:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="aspect-[4/3] rounded-3xl border-2 border-dashed border-border/70 bg-secondary/40"
-          />
-        ))}
-      </div>
+      {promoProducts.length === 0 ? (
+        <p className="mt-8 rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
+          Nenhum produto marcado para promoções ainda.
+        </p>
+      ) : (
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {promoProducts.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

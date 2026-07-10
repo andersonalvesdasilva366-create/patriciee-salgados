@@ -77,16 +77,23 @@ function normalizeProduct(row: Record<string, unknown>): Product {
         (row.partner as number | undefined) ??
         false,
     ),
+    promotion: Boolean(
+      (row.promotion as boolean | undefined) ??
+        (row.Promotion as boolean | undefined) ??
+        (row.promotion as number | undefined) ??
+        false,
+    ),
   };
 }
 
 function buildProductPayload(
-  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean },
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean },
   variant: "camel" | "lower" | "snake",
 ) {
   const imageKey = variant === "camel" ? "imageUrl" : variant === "lower" ? "imageurl" : "image_url";
   const orderBalanceKey = variant === "camel" ? "orderBalance" : variant === "lower" ? "orderbalance" : "order_balance";
-  const partnerKey = variant === "camel" ? "partner" : "partner";
+  const partnerKey = "partner";
+  const promotionKey = "promotion";
 
   return {
     ...(values.name !== undefined && { name: values.name }),
@@ -96,12 +103,13 @@ function buildProductPayload(
     ...(values.stock !== undefined && { stock: values.stock }),
     ...(values.orderBalance !== undefined && { [orderBalanceKey]: values.orderBalance }),
     ...(values.partner !== undefined && { [partnerKey]: values.partner }),
+    ...(values.promotion !== undefined && { [promotionKey]: values.promotion }),
   };
 }
 
 async function writeProductWithFallback(
   operation: "insert" | "update",
-  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null },
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean },
   id?: string,
 ) {
   const payloads = [
@@ -234,6 +242,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           stock: p.stock,
           orderBalance: p.orderBalance,
           partner: p.partner,
+          promotion: p.promotion,
         });
 
         if (error) {
@@ -261,6 +270,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...(patch.stock !== undefined && { stock: patch.stock }),
             ...(patch.orderBalance !== undefined && { orderBalance: patch.orderBalance }),
             ...(patch.partner !== undefined && { partner: patch.partner }),
+            ...(patch.promotion !== undefined && { promotion: patch.promotion }),
           },
           id,
         );
