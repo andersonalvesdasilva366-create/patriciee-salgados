@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { brl, formatDateTime } from "@/lib/format";
 import type { ExpenseEntry, Order, OrderStatus, Product } from "@/lib/types";
 import { ArrowUpRight, CalendarDays, CheckCircle2, CircleAlert, CircleDollarSign, Edit, LogOut, MessageSquareText, Package2, Plus, Receipt, Sparkles, Trash2, TrendingUp, WalletCards, XCircle } from "lucide-react";
-import { Cell, CartesianGrid, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
@@ -355,33 +354,13 @@ function FinancePanel() {
   const salesNeeded = averageTicket > 0 ? Math.max(0, Math.ceil(remainingToGoal / averageTicket)) : 0;
   const estimatedRevenue = revenue + salesNeeded * averageTicket;
   const projectedMonthlyRevenue = revenue + Math.max(0, remainingToGoal / 30);
-  const monthlySeries = useMemo(() => {
-    const months: Array<{ name: string; receita: number; gastos: number }> = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i -= 1) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const monthLabel = d.toLocaleDateString("pt-BR", { month: "short" });
-      const receita = orders.reduce((sum, order) => {
-        const orderMonth = order.createdAt.slice(0, 7);
-        return orderMonth === key ? sum + order.total : sum;
-      }, 0);
-      const gastos = expenses.reduce((sum, expense) => {
-        const expenseMonth = expense.paidAt.slice(0, 7);
-        return expenseMonth === key ? sum + expense.amount * (expense.quantity ?? 1) : sum;
-      }, 0);
-      months.push({ name: monthLabel, receita, gastos });
-    }
-    return months;
-  }, [orders, expenses]);
-
-  const categoryBreakdown = useMemo(() => {
+  const categorySummary = useMemo(() => {
     const map = expenses.reduce<Record<string, number>>((acc, expense) => {
       const category = expense.category?.trim() || "Sem categoria";
       acc[category] = (acc[category] ?? 0) + expense.amount * (expense.quantity ?? 1);
       return acc;
     }, {});
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([category, total]) => ({ category, total }));
   }, [expenses]);
 
   const filteredExpenses = useMemo(() => {
@@ -404,6 +383,52 @@ function FinancePanel() {
     status: product.stock <= 0 ? "Esgotado" : product.stock <= 5 ? "Baixo" : "OK",
   })).sort((a, b) => a.stock - b.stock), [products]);
 
+  const attentionAlerts = useMemo(() => {
+    const alerts: Array<{ title: string; detail: string; tone: "warning" | "danger" | "success" }> = [];
+
+    if (products.some((product) => product.stock <= 0)) {
+      alerts.push({
+        title: "Produtos sem estoque",
+        detail: `${products.filter((product) => product.stock <= 0).length} item(ns) precisa(m) reposição imediata.`,
+        tone: "danger",
+      });
+    }
+
+    if (expenses.some((expense) => expense.status === "pendente")) {
+      alerts.push({
+        title: "Gastos pendentes",
+        detail: `${expenses.filter((expense) => expense.status === "pendente").length} gasto(s) ainda aguardam confirmação.`,
+        tone: "warning",
+      });
+    }
+
+    if (remainingToGoal > 0) {
+      alerts.push({
+        title: "Meta ainda não atingida",
+        detail: `Faltam ${brl(remainingToGoal)} para a meta mensal.`,
+        tone: "warning",
+      });
+    }
+
+    if (profit < 0) {
+      alerts.push({
+        title: "Lucro líquido negativo",
+        detail: `O resultado atual está em ${brl(profit)}.`,
+        tone: "danger",
+      });
+    }
+
+    if (alerts.length === 0) {
+      alerts.push({
+        title: "Tudo em ordem",
+        detail: "Nenhum alerta crítico foi detectado no momento.",
+        tone: "success",
+      });
+    }
+
+    return alerts;
+  }, [expenses, products, profit, remainingToGoal]);
+
   const calendarDays = useMemo(() => {
     const year = calendarMonth.getFullYear();
     const month = calendarMonth.getMonth();
@@ -422,11 +447,39 @@ function FinancePanel() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-4">
-        <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-card"><div className="flex items-center gap-2 text-sm text-muted-foreground"><CircleDollarSign className="h-4 w-4 text-primary" />Receita</div><p className="mt-2 text-2xl font-bold">{brl(revenue)}</p></div>
-        <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-card"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Package2 className="h-4 w-4 text-primary" />Unidades vendidas</div><p className="mt-2 text-2xl font-bold">{soldUnits}</p></div>
-        <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-card"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Receipt className="h-4 w-4 text-primary" />Gastos</div><p className="mt-2 text-2xl font-bold">{brl(totalExpenses)}</p></div>
-        <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-card"><div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4 text-primary" />Lucro</div><p className="mt-2 text-2xl font-bold">{brl(profit)}</p></div>
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
+        <div className="rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-5 shadow-card">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><CircleDollarSign className="h-4 w-4 text-primary" />Receita total</div>
+          <p className="mt-2 text-3xl font-bold">{brl(revenue)}</p>
+          <p className="mt-2 text-sm text-muted-foreground">Valor consolidado de vendas até hoje.</p>
+        </div>
+        <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Package2 className="h-4 w-4 text-primary" />Unidades vendidas</div>
+          <p className="mt-2 text-2xl font-bold">{soldUnits}</p>
+          <p className="mt-2 text-sm text-muted-foreground">Quantidade total de itens vendidos.</p>
+        </div>
+        <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Receipt className="h-4 w-4 text-primary" />Gastos</div>
+          <p className="mt-2 text-2xl font-bold">{brl(totalExpenses)}</p>
+          <p className="mt-2 text-sm text-muted-foreground">Somatório de todos os gastos cadastrados.</p>
+        </div>
+        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-5 shadow-card">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4 text-emerald-600" />Lucro líquido</div>
+          <p className="mt-2 text-3xl font-bold text-emerald-700">{brl(profit)}</p>
+          <p className="mt-2 text-sm text-muted-foreground">Receita menos despesas registradas.</p>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+        <div className="mb-3 flex items-center gap-2"><CircleAlert className="h-4 w-4 text-primary" /><h2 className="font-semibold">O que precisa de atenção hoje</h2></div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {attentionAlerts.map((alert) => (
+            <div key={alert.title} className={`rounded-2xl border p-3 ${alert.tone === "danger" ? "border-destructive/30 bg-destructive/10" : alert.tone === "warning" ? "border-amber-500/30 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10"}`}>
+              <p className="font-semibold">{alert.title}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{alert.detail}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
@@ -456,34 +509,47 @@ function FinancePanel() {
             </div>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
-              <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">Tendência mensal</h2><span className="text-sm text-muted-foreground">Receita x gastos</span></div>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={monthlySeries}>
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                    <YAxis tickLine={false} axisLine={false} />
-                    <Tooltip formatter={(value: number) => brl(value)} />
-                    <Line type="monotone" dataKey="receita" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="gastos" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="mb-4">
+                <h2 className="font-semibold">Resumo do mês</h2>
+                <p className="text-sm text-muted-foreground">Veja em texto os números principais de entrada e saída.</p>
+              </div>
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-border/60 bg-secondary/40 p-3">
+                  <p className="text-sm text-muted-foreground">Receita acumulada</p>
+                  <p className="mt-1 text-xl font-semibold">{brl(revenue)}</p>
+                  <p className="mt-1 text-sm">Somatório das vendas registradas até o momento.</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-secondary/40 p-3">
+                  <p className="text-sm text-muted-foreground">Gastos registrados</p>
+                  <p className="mt-1 text-xl font-semibold">{brl(totalExpenses)}</p>
+                  <p className="mt-1 text-sm">Inclui quantidade, status e observações de cada gasto.</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-secondary/40 p-3">
+                  <p className="text-sm text-muted-foreground">Meta restante</p>
+                  <p className="mt-1 text-xl font-semibold">{brl(remainingToGoal)}</p>
+                  <p className="mt-1 text-sm">Você precisa de {salesNeeded} vendas com ticket médio de {brl(averageTicket)} para fechar a meta.</p>
+                </div>
               </div>
             </div>
+
             <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
-              <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">Gastos por categoria</h2><span className="text-sm text-muted-foreground">Distribuição</span></div>
-              {categoryBreakdown.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum gasto categorizado ainda.</p> : (
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={categoryBreakdown.map(([name, value]) => ({ name, value }))} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
-                        {categoryBreakdown.map(([name]) => <Cell key={name} fill={name === "Ingredientes" ? "#f59e0b" : name === "Frete" ? "#ef4444" : "#0f766e"} />)}
-                      </Pie>
-                      <Tooltip formatter={(value: number) => brl(value)} />
-                    </PieChart>
-                  </ResponsiveContainer>
+              <div className="mb-4">
+                <h2 className="font-semibold">Gastos por categoria</h2>
+                <p className="text-sm text-muted-foreground">Lista textual com o total de cada tipo de gasto.</p>
+              </div>
+              {categorySummary.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum gasto categorizado ainda.</p> : (
+                <div className="space-y-2">
+                  {categorySummary.map(({ category, total }) => (
+                    <div key={category} className="flex items-center justify-between rounded-2xl border border-border/60 bg-secondary/40 p-3">
+                      <div>
+                        <p className="font-medium">{category}</p>
+                        <p className="text-xs text-muted-foreground">Categoria cadastrada no formulário de gastos.</p>
+                      </div>
+                      <p className="font-semibold">{brl(total)}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
