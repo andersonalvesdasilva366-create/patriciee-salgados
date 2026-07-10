@@ -6,6 +6,7 @@ export type Product = {
   price: number;
   stock: number;
   orderBalance?: number; // Saldo disponível para encomenda
+  partner?: boolean;
 };
 
 export type CartItem = {
@@ -16,6 +17,7 @@ export type CartItem = {
   quantity: number;
   deliveryDate?: string; // ISO date (YYYY-MM-DD)
   kind?: "stock" | "order";
+  partner?: boolean;
 };
 
 export type OrderStatus =

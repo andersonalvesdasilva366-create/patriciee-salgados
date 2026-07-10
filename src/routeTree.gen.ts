@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PromocoesRouteImport } from './routes/promocoes'
 import { Route as ProdutosRouteImport } from './routes/produtos'
+import { Route as ParceirosRouteImport } from './routes/parceiros'
 import { Route as MissaoRouteImport } from './routes/missao'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CarrinhoRouteImport } from './routes/carrinho'
@@ -26,6 +27,11 @@ const PromocoesRoute = PromocoesRouteImport.update({
 const ProdutosRoute = ProdutosRouteImport.update({
   id: '/produtos',
   path: '/produtos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParceirosRoute = ParceirosRouteImport.update({
+  id: '/parceiros',
+  path: '/parceiros',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MissaoRoute = MissaoRouteImport.update({
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/carrinho': typeof CarrinhoRoute
   '/checkout': typeof CheckoutRoute
   '/missao': typeof MissaoRoute
+  '/parceiros': typeof ParceirosRoute
   '/produtos': typeof ProdutosRoute
   '/promocoes': typeof PromocoesRoute
   '/pedido/$id': typeof PedidoIdRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/carrinho': typeof CarrinhoRoute
   '/checkout': typeof CheckoutRoute
   '/missao': typeof MissaoRoute
+  '/parceiros': typeof ParceirosRoute
   '/produtos': typeof ProdutosRoute
   '/promocoes': typeof PromocoesRoute
   '/pedido/$id': typeof PedidoIdRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/carrinho': typeof CarrinhoRoute
   '/checkout': typeof CheckoutRoute
   '/missao': typeof MissaoRoute
+  '/parceiros': typeof ParceirosRoute
   '/produtos': typeof ProdutosRoute
   '/promocoes': typeof PromocoesRoute
   '/pedido/$id': typeof PedidoIdRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/carrinho'
     | '/checkout'
     | '/missao'
+    | '/parceiros'
     | '/produtos'
     | '/promocoes'
     | '/pedido/$id'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/carrinho'
     | '/checkout'
     | '/missao'
+    | '/parceiros'
     | '/produtos'
     | '/promocoes'
     | '/pedido/$id'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/carrinho'
     | '/checkout'
     | '/missao'
+    | '/parceiros'
     | '/produtos'
     | '/promocoes'
     | '/pedido/$id'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   CarrinhoRoute: typeof CarrinhoRoute
   CheckoutRoute: typeof CheckoutRoute
   MissaoRoute: typeof MissaoRoute
+  ParceirosRoute: typeof ParceirosRoute
   ProdutosRoute: typeof ProdutosRoute
   PromocoesRoute: typeof PromocoesRoute
   PedidoIdRoute: typeof PedidoIdRoute
@@ -148,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/produtos'
       fullPath: '/produtos'
       preLoaderRoute: typeof ProdutosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parceiros': {
+      id: '/parceiros'
+      path: '/parceiros'
+      fullPath: '/parceiros'
+      preLoaderRoute: typeof ParceirosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/missao': {
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   CarrinhoRoute: CarrinhoRoute,
   CheckoutRoute: CheckoutRoute,
   MissaoRoute: MissaoRoute,
+  ParceirosRoute: ParceirosRoute,
   ProdutosRoute: ProdutosRoute,
   PromocoesRoute: PromocoesRoute,
   PedidoIdRoute: PedidoIdRoute,

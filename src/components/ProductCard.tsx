@@ -37,12 +37,18 @@ export function ProductCard({ product }: { product: Product }) {
   const stockAvailable = product.stock;
   const orderAvailable = product.orderBalance ?? 0;
   const canAdd = stockAvailable > 0;
-  const canOrder = stockAvailable > 0 || orderAvailable > 0;
+  const canOrder = orderAvailable > 0;
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [orderAddedMessage, setOrderAddedMessage] = useState<string>("");
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card shadow-card transition-all hover:-translate-y-1 hover:shadow-warm">
+      {product.partner && (
+        <div className="absolute right-4 top-4 z-10 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary shadow-card">
+          Parceiro
+        </div>
+      )}
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         <img
           src={product.imageUrl}
@@ -73,6 +79,11 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
         <div className="mt-auto flex flex-col gap-3 pt-2">
           <span className="text-2xl font-bold text-primary">{brl(product.price)}</span>
+          {product.partner && (
+            <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              Produto parceiro
+            </span>
+          )}
           <div className="flex gap-2">
             <Button
               disabled={!canAdd}
@@ -137,6 +148,7 @@ export function ProductCard({ product }: { product: Product }) {
                   return;
                 }
                 addToCart(product, 1, selectedDate, "order");
+                setOrderAddedMessage(`Encomenda agendada para ${formatDateForDisplay(selectedDate)} e adicionada ao carrinho.`);
                 toast.success(`${product.name} encomendado para ${formatDateForDisplay(selectedDate)}`);
                 setShowOrderDialog(false);
                 setSelectedDate("");
@@ -148,6 +160,11 @@ export function ProductCard({ product }: { product: Product }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {orderAddedMessage && (
+        <div className="border-t border-border/60 bg-green-50 px-5 py-3 text-sm text-green-900">
+          {orderAddedMessage}
+        </div>
+      )}
     </article>
   );
 }

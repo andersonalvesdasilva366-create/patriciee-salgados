@@ -17,6 +17,7 @@ export type Database = {
           price: number;
           stock: number;
           orderBalance: number | null;
+          partner: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -27,6 +28,7 @@ export type Database = {
           price: number;
           stock?: number;
           orderBalance?: number | null;
+          partner?: boolean;
         };
         Update: {
           name?: string;
@@ -35,6 +37,7 @@ export type Database = {
           price?: number;
           stock?: number;
           orderBalance?: number | null;
+          partner?: boolean;
         };
       };
       orders: {

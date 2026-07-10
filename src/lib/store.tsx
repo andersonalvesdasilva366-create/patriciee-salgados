@@ -71,15 +71,22 @@ function normalizeProduct(row: Record<string, unknown>): Product {
         (row.order_balance as number | undefined) ??
         0,
     ),
+    partner: Boolean(
+      (row.partner as boolean | undefined) ??
+        (row.Partner as boolean | undefined) ??
+        (row.partner as number | undefined) ??
+        false,
+    ),
   };
 }
 
 function buildProductPayload(
-  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null },
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean },
   variant: "camel" | "lower" | "snake",
 ) {
   const imageKey = variant === "camel" ? "imageUrl" : variant === "lower" ? "imageurl" : "image_url";
   const orderBalanceKey = variant === "camel" ? "orderBalance" : variant === "lower" ? "orderbalance" : "order_balance";
+  const partnerKey = variant === "camel" ? "partner" : "partner";
 
   return {
     ...(values.name !== undefined && { name: values.name }),
@@ -88,6 +95,7 @@ function buildProductPayload(
     ...(values.price !== undefined && { price: values.price }),
     ...(values.stock !== undefined && { stock: values.stock }),
     ...(values.orderBalance !== undefined && { [orderBalanceKey]: values.orderBalance }),
+    ...(values.partner !== undefined && { [partnerKey]: values.partner }),
   };
 }
 
@@ -225,6 +233,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           price: p.price,
           stock: p.stock,
           orderBalance: p.orderBalance,
+          partner: p.partner,
         });
 
         if (error) {
@@ -251,6 +260,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...(patch.price !== undefined && { price: patch.price }),
             ...(patch.stock !== undefined && { stock: patch.stock }),
             ...(patch.orderBalance !== undefined && { orderBalance: patch.orderBalance }),
+            ...(patch.partner !== undefined && { partner: patch.partner }),
           },
           id,
         );
@@ -309,6 +319,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             quantity: Math.min(qty, maxQty),
             ...(deliveryDate && { deliveryDate }),
             kind,
+            partner: product.partner,
           },
         ];
       }),
