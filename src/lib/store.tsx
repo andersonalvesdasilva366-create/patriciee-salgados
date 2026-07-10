@@ -573,11 +573,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         id: uid(),
         description: expense.description.trim(),
         amount: Number(expense.amount) || 0,
-        category: expense.category,
+        category: expense.category.trim(),
         paidAt: expense.paidAt,
         expectedReturnAt: expense.expectedReturnAt,
         expectedProfit: expense.expectedProfit,
         notes: expense.notes,
+        quantity: Math.max(1, Number(expense.quantity) || 1),
+        status: expense.status ?? "pendente",
       };
       setExpenses((prev) => [entry, ...prev]);
     },

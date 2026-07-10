@@ -12,7 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { brl, formatDateTime } from "@/lib/format";
 import type { ExpenseEntry, Order, OrderStatus, Product } from "@/lib/types";
-import { CheckCircle2, CircleDollarSign, Edit, LogOut, MessageSquareText, Package2, Plus, Receipt, Sparkles, Trash2, TrendingUp, XCircle } from "lucide-react";
+import { ArrowUpRight, CalendarDays, CheckCircle2, CircleAlert, CircleDollarSign, Edit, LogOut, MessageSquareText, Package2, Plus, Receipt, Sparkles, Trash2, TrendingUp, WalletCards, XCircle } from "lucide-react";
+import { Cell, CartesianGrid, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
@@ -336,19 +337,88 @@ function FeedbacksPanel() {
 }
 
 function FinancePanel() {
-  const { orders, expenses, salesTarget, setSalesTarget, addExpense, deleteExpense } = useStore();
+  const { orders, expenses, products, salesTarget, setSalesTarget, addExpense, deleteExpense } = useStore();
   const [targetInput, setTargetInput] = useState(salesTarget);
   const [averageTicket, setAverageTicket] = useState(60);
-  const [expenseForm, setExpenseForm] = useState<Omit<ExpenseEntry, "id">>({ description: "", amount: 0, category: "", paidAt: new Date().toISOString().slice(0, 10), expectedReturnAt: "", expectedProfit: 0, notes: "" });
+  const [historyRange, setHistoryRange] = useState<"all" | "today" | "week" | "month">("month");
+  const [historyCategory, setHistoryCategory] = useState("all");
+  const [historySearch, setHistorySearch] = useState("");
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [expenseForm, setExpenseForm] = useState<Omit<ExpenseEntry, "id">>({ description: "", amount: 0, category: "", quantity: 1, status: "pendente", paidAt: new Date().toISOString().slice(0, 10), expectedReturnAt: "", expectedProfit: 0, notes: "" });
 
   const revenue = useMemo(() => orders.reduce((sum, order) => sum + order.total, 0), [orders]);
   const soldUnits = useMemo(() => orders.reduce((sum, order) => sum + order.items.reduce((s, item) => s + item.quantity, 0), 0), [orders]);
-  const totalExpenses = useMemo(() => expenses.reduce((sum, expense) => sum + expense.amount, 0), [expenses]);
+  const totalExpenses = useMemo(() => expenses.reduce((sum, expense) => sum + expense.amount * (expense.quantity ?? 1), 0), [expenses]);
   const profit = revenue - totalExpenses;
   const progress = salesTarget > 0 ? Math.min(100, (revenue / salesTarget) * 100) : 0;
   const remainingToGoal = Math.max(0, salesTarget - revenue);
   const salesNeeded = averageTicket > 0 ? Math.max(0, Math.ceil(remainingToGoal / averageTicket)) : 0;
   const estimatedRevenue = revenue + salesNeeded * averageTicket;
+  const projectedMonthlyRevenue = revenue + Math.max(0, remainingToGoal / 30);
+  const monthlySeries = useMemo(() => {
+    const months: Array<{ name: string; receita: number; gastos: number }> = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const monthLabel = d.toLocaleDateString("pt-BR", { month: "short" });
+      const receita = orders.reduce((sum, order) => {
+        const orderMonth = order.createdAt.slice(0, 7);
+        return orderMonth === key ? sum + order.total : sum;
+      }, 0);
+      const gastos = expenses.reduce((sum, expense) => {
+        const expenseMonth = expense.paidAt.slice(0, 7);
+        return expenseMonth === key ? sum + expense.amount * (expense.quantity ?? 1) : sum;
+      }, 0);
+      months.push({ name: monthLabel, receita, gastos });
+    }
+    return months;
+  }, [orders, expenses]);
+
+  const categoryBreakdown = useMemo(() => {
+    const map = expenses.reduce<Record<string, number>>((acc, expense) => {
+      const category = expense.category?.trim() || "Sem categoria";
+      acc[category] = (acc[category] ?? 0) + expense.amount * (expense.quantity ?? 1);
+      return acc;
+    }, {});
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [expenses]);
+
+  const filteredExpenses = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    return expenses.filter((expense) => {
+      const paidAt = new Date(expense.paidAt);
+      const matchesRange = historyRange === "all" || (historyRange === "today" && paidAt >= startOfToday) || (historyRange === "week" && paidAt >= startOfWeek) || (historyRange === "month" && paidAt >= startOfMonth);
+      const matchesCategory = historyCategory === "all" || expense.category?.toLowerCase() === historyCategory.toLowerCase();
+      const matchesSearch = historySearch.trim() === "" || [expense.description, expense.category, expense.notes ?? ""].join(" ").toLowerCase().includes(historySearch.toLowerCase());
+      return matchesRange && matchesCategory && matchesSearch;
+    });
+  }, [expenses, historyCategory, historyRange, historySearch]);
+
+  const inventoryRows = useMemo(() => products.map((product) => ({
+    ...product,
+    status: product.stock <= 0 ? "Esgotado" : product.stock <= 5 ? "Baixo" : "OK",
+  })).sort((a, b) => a.stock - b.stock), [products]);
+
+  const calendarDays = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 0);
+    const offset = (start.getDay() + 6) % 7;
+    const cells = Math.ceil((offset + end.getDate()) / 7) * 7;
+    return Array.from({ length: cells }).map((_, index) => {
+      const dayOffset = index - offset + 1;
+      const date = new Date(year, month, dayOffset);
+      const key = date.toISOString().slice(0, 10);
+      const events = orders.filter((order) => order.createdAt.slice(0, 10) === key).length + expenses.filter((expense) => expense.paidAt === key).length;
+      return { date, isCurrentMonth: date.getMonth() === month, events };
+    });
+  }, [calendarMonth, expenses, orders]);
 
   return (
     <div className="space-y-4">
@@ -359,45 +429,214 @@ function FinancePanel() {
         <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-card"><div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4 text-primary" />Lucro</div><p className="mt-2 text-2xl font-bold">{brl(profit)}</p></div>
       </div>
 
-      <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="font-semibold">Calculadora de metas</h2><p className="text-sm text-muted-foreground">Descubra quantas vendas ainda faltam para bater a meta.</p></div>
-          <div className="flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm font-medium">Meta atual: {brl(salesTarget)}</div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2"><Label>Meta de vendas</Label><Input type="number" min="0" value={targetInput} onChange={(e) => setTargetInput(Number(e.target.value))} className="rounded-xl" /></div>
-          <div className="space-y-2"><Label>Ticket médio por venda</Label><Input type="number" min="0" value={averageTicket} onChange={(e) => setAverageTicket(Number(e.target.value))} className="rounded-xl" /></div>
-          <div className="space-y-2"><Label>Salvar meta</Label><Button className="w-full rounded-full" onClick={() => { setSalesTarget(targetInput); toast.success("Meta atualizada"); }}>Salvar meta</Button></div>
-        </div>
-        <div className="mt-4 rounded-2xl bg-secondary/40 p-3 text-sm">
-          <p>Faltam {brl(remainingToGoal)} para alcançar a meta.</p>
-          <p className="mt-1">Você precisaria de aproximadamente {salesNeeded} vendas com ticket médio de {brl(averageTicket)} para chegar lá.</p>
-          <p className="mt-1">Estimativa de receita com isso: {brl(estimatedRevenue)}.</p>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-border"><div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} /></div>
-        </div>
-      </div>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="rounded-full">
+          <TabsTrigger value="overview" className="rounded-full">Resumo</TabsTrigger>
+          <TabsTrigger value="results" className="rounded-full">Resultados</TabsTrigger>
+          <TabsTrigger value="expenses" className="rounded-full">Gastos</TabsTrigger>
+        </TabsList>
 
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
-          <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">Gastos registrados</h2><span className="text-sm text-muted-foreground">Controle os custos e lucros</span></div>
-          {expenses.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum gasto registrado ainda.</p> : <ul className="space-y-2">{expenses.map((expense) => <li key={expense.id} className="flex items-center justify-between rounded-2xl border border-border/60 bg-secondary/40 p-3"><div><p className="font-medium">{expense.description}</p><p className="text-xs text-muted-foreground">{expense.category} · {expense.paidAt}</p></div><div className="flex items-center gap-2"><span className="font-semibold">{brl(expense.amount)}</span><Button size="icon" variant="ghost" className="rounded-full" onClick={() => deleteExpense(expense.id)}><Trash2 className="h-4 w-4" /></Button></div></li>)}</ul>}
-        </div>
-        <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
-          <h2 className="font-semibold">Adicionar gasto</h2>
-          <div className="mt-4 space-y-3">
-            <div className="space-y-2"><Label>Descrição</Label><Input value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-xl" placeholder="Ex.: Ingredientes" /></div>
-            <div className="space-y-2"><Label>Categoria</Label><Input value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-xl" placeholder="Ex.: Ingredientes" /></div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2"><Label>Valor (R$)</Label><Input type="number" min="0" step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: Number(e.target.value) })} className="rounded-xl" /></div>
-              <div className="space-y-2"><Label>Data</Label><Input type="date" value={expenseForm.paidAt} onChange={(e) => setExpenseForm({ ...expenseForm, paidAt: e.target.value })} className="rounded-xl" /></div>
+        <TabsContent value="overview" className="mt-4 space-y-4">
+          <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div><h2 className="font-semibold">Calculadora de metas</h2><p className="text-sm text-muted-foreground">Descubra o quanto ainda falta para bater a meta e o próximo passo.</p></div>
+              <div className="flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm font-medium">Meta atual: {brl(salesTarget)}</div>
             </div>
-            <div className="space-y-2"><Label>Retorno esperado</Label><Input type="date" value={expenseForm.expectedReturnAt ?? ""} onChange={(e) => setExpenseForm({ ...expenseForm, expectedReturnAt: e.target.value })} className="rounded-xl" /></div>
-            <div className="space-y-2"><Label>Lucro estimado</Label><Input type="number" min="0" step="0.01" value={expenseForm.expectedProfit ?? 0} onChange={(e) => setExpenseForm({ ...expenseForm, expectedProfit: Number(e.target.value) })} className="rounded-xl" /></div>
-            <div className="space-y-2"><Label>Observações</Label><Textarea value={expenseForm.notes ?? ""} onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })} className="rounded-xl" /></div>
-            <Button className="w-full rounded-full" onClick={async () => { if (!expenseForm.description.trim()) { toast.error("Descreva o gasto"); return; } await addExpense(expenseForm); setExpenseForm({ description: "", amount: 0, category: "", paidAt: new Date().toISOString().slice(0, 10), expectedReturnAt: "", expectedProfit: 0, notes: "" }); toast.success("Gasto adicionado"); }}>Adicionar gasto</Button>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2"><Label>Meta de vendas</Label><Input type="number" min="0" value={targetInput} onChange={(e) => setTargetInput(Number(e.target.value))} className="rounded-xl" /></div>
+              <div className="space-y-2"><Label>Ticket médio por venda</Label><Input type="number" min="0" value={averageTicket} onChange={(e) => setAverageTicket(Number(e.target.value))} className="rounded-xl" /></div>
+              <div className="space-y-2"><Label>Salvar meta</Label><Button className="w-full rounded-full" onClick={() => { setSalesTarget(targetInput); toast.success("Meta atualizada"); }}>Salvar meta</Button></div>
+            </div>
+            <div className="mt-4 rounded-2xl bg-secondary/40 p-3 text-sm">
+              <div className="flex items-center justify-between gap-2"><span>Progresso da meta</span><span className="font-semibold">{progress.toFixed(1)}%</span></div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-border"><div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} /></div>
+              <p className="mt-3">Faltam {brl(remainingToGoal)} para alcançar a meta.</p>
+              <p className="mt-1">Você precisaria de aproximadamente {salesNeeded} vendas com ticket médio de {brl(averageTicket)} para chegar lá.</p>
+              <p className="mt-1">Estimativa de receita com isso: {brl(estimatedRevenue)}.</p>
+            </div>
           </div>
-        </div>
-      </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+              <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">Tendência mensal</h2><span className="text-sm text-muted-foreground">Receita x gastos</span></div>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={monthlySeries}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                    <YAxis tickLine={false} axisLine={false} />
+                    <Tooltip formatter={(value: number) => brl(value)} />
+                    <Line type="monotone" dataKey="receita" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="gastos" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+              <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">Gastos por categoria</h2><span className="text-sm text-muted-foreground">Distribuição</span></div>
+              {categoryBreakdown.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum gasto categorizado ainda.</p> : (
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={categoryBreakdown.map(([name, value]) => ({ name, value }))} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
+                        {categoryBreakdown.map(([name]) => <Cell key={name} fill={name === "Ingredientes" ? "#f59e0b" : name === "Frete" ? "#ef4444" : "#0f766e"} />)}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => brl(value)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="results" className="mt-4 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-card">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><WalletCards className="h-4 w-4 text-primary" />Resultado líquido</div>
+              <p className="mt-2 text-xl font-bold">{brl(profit)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Receitas menos gastos</p>
+            </div>
+            <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-card">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><ArrowUpRight className="h-4 w-4 text-primary" />Projeção do mês</div>
+              <p className="mt-2 text-xl font-bold">{brl(projectedMonthlyRevenue)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Com base no restante da meta</p>
+            </div>
+            <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-card">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Package2 className="h-4 w-4 text-primary" />Itens em estoque</div>
+              <p className="mt-2 text-xl font-bold">{products.filter((product) => product.stock > 0).length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Produtos com saldo ativo</p>
+            </div>
+            <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-card">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><CalendarDays className="h-4 w-4 text-primary" />Calendário</div>
+              <p className="mt-2 text-xl font-bold">{calendarDays.filter((day) => day.events > 0).length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Dias com movimentação</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-semibold">Estoque</h2>
+                <span className="text-sm text-muted-foreground">Alertas de baixa quantidade</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/60 text-left text-muted-foreground">
+                      <th className="py-2">Produto</th>
+                      <th className="py-2">Estoque</th>
+                      <th className="py-2">Encomenda</th>
+                      <th className="py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventoryRows.map((product) => (
+                      <tr key={product.id} className="border-b border-border/40">
+                        <td className="py-2 font-medium">{product.name}</td>
+                        <td className="py-2">{product.stock}</td>
+                        <td className="py-2">{product.orderBalance ?? 0}</td>
+                        <td className="py-2"><Badge className={product.stock <= 0 ? "bg-destructive/10 text-destructive" : product.stock <= 5 ? "bg-amber-500/15 text-amber-700" : "bg-emerald-500/10 text-emerald-700"}>{product.status}</Badge></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-semibold">Histórico financeiro</h2>
+                <div className="flex flex-wrap gap-2">
+                  <Select value={historyRange} onValueChange={(value) => setHistoryRange(value as "all" | "today" | "week" | "month")}>
+                    <SelectTrigger className="h-8 w-24 rounded-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="today">Hoje</SelectItem>
+                      <SelectItem value="week">Semana</SelectItem>
+                      <SelectItem value="month">Mês</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={historyCategory} onValueChange={setHistoryCategory}>
+                    <SelectTrigger className="h-8 w-32 rounded-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {Array.from(new Set(expenses.map((expense) => expense.category?.trim()).filter(Boolean))).map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Input value={historySearch} onChange={(e) => setHistorySearch(e.target.value)} className="mb-3 rounded-xl" placeholder="Buscar gasto" />
+              <div className="space-y-2">
+                {filteredExpenses.length === 0 ? <p className="rounded-2xl border border-dashed border-border p-3 text-sm text-muted-foreground">Nenhum gasto encontrado para os filtros.</p> : filteredExpenses.map((expense) => (
+                  <div key={expense.id} className="flex items-center justify-between rounded-2xl border border-border/60 bg-secondary/40 p-3">
+                    <div>
+                      <p className="font-medium">{expense.description}</p>
+                      <p className="text-xs text-muted-foreground">{expense.category} · {expense.paidAt} · qtd {expense.quantity ?? 1}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">{brl(expense.amount * (expense.quantity ?? 1))}</p>
+                      <Badge variant="secondary">{expense.status ?? "pendente"}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="expenses" className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+            <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">Gastos registrados</h2><span className="text-sm text-muted-foreground">Tabela detalhada</span></div>
+            {expenses.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum gasto registrado ainda.</p> : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/60 text-left text-muted-foreground">
+                      <th className="py-2">Descrição</th>
+                      <th className="py-2">Categoria</th>
+                      <th className="py-2">Qtd</th>
+                      <th className="py-2">Valor</th>
+                      <th className="py-2">Status</th>
+                      <th className="py-2">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expenses.map((expense) => (
+                      <tr key={expense.id} className="border-b border-border/40 align-top">
+                        <td className="py-2 font-medium">{expense.description}</td>
+                        <td className="py-2">{expense.category}</td>
+                        <td className="py-2">{expense.quantity ?? 1}</td>
+                        <td className="py-2">{brl(expense.amount * (expense.quantity ?? 1))}</td>
+                        <td className="py-2"><Badge variant="secondary">{expense.status ?? "pendente"}</Badge></td>
+                        <td className="py-2"><Button size="icon" variant="ghost" className="rounded-full" onClick={() => deleteExpense(expense.id)}><Trash2 className="h-4 w-4" /></Button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+            <div className="mb-3 flex items-center gap-2"><CircleAlert className="h-4 w-4 text-primary" /><h2 className="font-semibold">Adicionar gasto</h2></div>
+            <div className="space-y-3">
+              <div className="space-y-2"><Label>Descrição</Label><Input value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-xl" placeholder="Ex.: Ingredientes" /></div>
+              <div className="space-y-2"><Label>Categoria</Label><Input value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-xl" placeholder="Ex.: Ingredientes" /></div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Valor unitário (R$)</Label><Input type="number" min="0" step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: Number(e.target.value) })} className="rounded-xl" /></div>
+                <div className="space-y-2"><Label>Quantidade</Label><Input type="number" min="1" step="1" value={expenseForm.quantity ?? 1} onChange={(e) => setExpenseForm({ ...expenseForm, quantity: Number(e.target.value) || 1 })} className="rounded-xl" /></div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Status</Label><Select value={expenseForm.status ?? "pendente"} onValueChange={(value) => setExpenseForm({ ...expenseForm, status: value as ExpenseEntry["status"] })}><SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pendente">Pendente</SelectItem><SelectItem value="parcial">Parcial</SelectItem><SelectItem value="pago">Pago</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label>Data</Label><Input type="date" value={expenseForm.paidAt} onChange={(e) => setExpenseForm({ ...expenseForm, paidAt: e.target.value })} className="rounded-xl" /></div>
+              </div>
+              <div className="space-y-2"><Label>Retorno esperado</Label><Input type="date" value={expenseForm.expectedReturnAt ?? ""} onChange={(e) => setExpenseForm({ ...expenseForm, expectedReturnAt: e.target.value })} className="rounded-xl" /></div>
+              <div className="space-y-2"><Label>Lucro estimado</Label><Input type="number" min="0" step="0.01" value={expenseForm.expectedProfit ?? 0} onChange={(e) => setExpenseForm({ ...expenseForm, expectedProfit: Number(e.target.value) })} className="rounded-xl" /></div>
+              <div className="space-y-2"><Label>Observações</Label><Textarea value={expenseForm.notes ?? ""} onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })} className="rounded-xl" /></div>
+              <Button className="w-full rounded-full" onClick={async () => { if (!expenseForm.description.trim()) { toast.error("Descreva o gasto"); return; } await addExpense(expenseForm); setExpenseForm({ description: "", amount: 0, category: "", quantity: 1, status: "pendente", paidAt: new Date().toISOString().slice(0, 10), expectedReturnAt: "", expectedProfit: 0, notes: "" }); toast.success("Gasto adicionado"); }}>Adicionar gasto</Button>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

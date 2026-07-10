@@ -32,6 +32,8 @@ export type ExpenseEntry = {
   expectedReturnAt?: string;
   expectedProfit?: number;
   notes?: string;
+  quantity?: number;
+  status?: "pendente" | "pago" | "parcial";
 };
 
 export type CartItem = {
