@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,12 +78,14 @@ function AdminPage() {
         <TabsList className="rounded-full">
           <TabsTrigger value="orders" className="rounded-full">Pedidos</TabsTrigger>
           <TabsTrigger value="products" className="rounded-full">Produtos</TabsTrigger>
+          <TabsTrigger value="home" className="rounded-full">Home</TabsTrigger>
           <TabsTrigger value="feedbacks" className="rounded-full">Comentários</TabsTrigger>
           <TabsTrigger value="finance" className="rounded-full">Vendas & Gastos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="mt-6"><OrdersPanel /></TabsContent>
         <TabsContent value="products" className="mt-6"><ProductsPanel /></TabsContent>
+        <TabsContent value="home" className="mt-6"><HomeSettingsPanel /></TabsContent>
         <TabsContent value="feedbacks" className="mt-6"><FeedbacksPanel /></TabsContent>
         <TabsContent value="finance" className="mt-6"><FinancePanel /></TabsContent>
       </Tabs>
@@ -313,6 +315,65 @@ function ProductDialog({ product, onSubmit }: { product: Product | null; onSubmi
         <DialogFooter><Button type="submit" className="rounded-full">Salvar</Button></DialogFooter>
       </form>
     </DialogContent>
+  );
+}
+
+function HomeSettingsPanel() {
+  const { homeVideoUrl, homeImageUrl, setHomeVideoUrl, setHomeImageUrl } = useStore();
+  const [videoValue, setVideoValue] = useState(homeVideoUrl);
+  const [imageValue, setImageValue] = useState(homeImageUrl);
+
+  useEffect(() => {
+    setVideoValue(homeVideoUrl);
+  }, [homeVideoUrl]);
+
+  useEffect(() => {
+    setImageValue(homeImageUrl);
+  }, [homeImageUrl]);
+
+  return (
+    <div className="rounded-3xl border border-border/60 bg-card p-6 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-2xl font-bold">Conteúdo da home</h2>
+          <p className="text-sm text-muted-foreground">Defina um vídeo ou uma imagem para aparecer no destaque principal da página inicial.</p>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-6">
+        <div className="space-y-2">
+          <Label>Link do vídeo</Label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={videoValue}
+              onChange={(e) => setVideoValue(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              className="rounded-xl"
+            />
+            <Button className="rounded-full" onClick={() => { setHomeVideoUrl(videoValue); toast.success("Link do vídeo salvo"); }}>
+              Salvar vídeo
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">Aceita YouTube, MP4 ou WebM.</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>URL da imagem da home</Label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={imageValue}
+              onChange={(e) => setImageValue(e.target.value)}
+              placeholder="https://.../imagem.jpg"
+              className="rounded-xl"
+            />
+            <Button variant="outline" className="rounded-full" onClick={() => { setHomeImageUrl(imageValue); toast.success("Imagem da home salva"); }}>
+              Salvar imagem
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">Se houver vídeo, ele terá prioridade. Se não, a imagem será exibida.</p>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -9,6 +9,8 @@ const KEY_ADMIN = "sdp:admin";
 const KEY_FEEDBACKS = "sdp:feedbacks";
 const KEY_EXPENSES = "sdp:expenses";
 const KEY_SALES_TARGET = "sdp:salesTarget";
+const KEY_HOME_VIDEO = "sdp:homeVideoUrl";
+const KEY_HOME_IMAGE = "sdp:homeImageUrl";
 
 const DEFAULT_FEEDBACKS: ProductFeedback[] = [];
 
@@ -58,6 +60,8 @@ type Ctx = {
   feedbacks: ProductFeedback[];
   expenses: ExpenseEntry[];
   salesTarget: number;
+  homeVideoUrl: string;
+  homeImageUrl: string;
 
   // products
   addProduct: (p: Omit<Product, "id">) => Promise<void>;
@@ -85,6 +89,8 @@ type Ctx = {
   addExpense: (expense: Omit<ExpenseEntry, "id">) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
   setSalesTarget: (value: number) => void;
+  setHomeVideoUrl: (value: string) => void;
+  setHomeImageUrl: (value: string) => void;
 };
 
 const StoreContext = createContext<Ctx | null>(null);
@@ -199,16 +205,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [feedbacks, setFeedbacks] = useState<ProductFeedback[]>([]);
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
   const [salesTarget, setSalesTarget] = useState(5000);
+  const [homeVideoUrl, setHomeVideoUrl] = useState("");
+  const [homeImageUrl, setHomeImageUrl] = useState("");
   const [hydrated, setHydrated] = useState(false);
 
   // Load cart and admin from localStorage
   useEffect(() => {
+    const localVideoUrl = load<string>(KEY_HOME_VIDEO, "");
+    const localImageUrl = load<string>(KEY_HOME_IMAGE, "");
     setCart(load<CartItem[]>(KEY_CART, []));
     setIsAdmin(load<boolean>(KEY_ADMIN, false));
     setFeedbacks(sanitizeFeedbacks(load<unknown>(KEY_FEEDBACKS, DEFAULT_FEEDBACKS)));
     setExpenses(load<ExpenseEntry[]>(KEY_EXPENSES, []));
     setSalesTarget(load<number>(KEY_SALES_TARGET, 5000));
+    setHomeVideoUrl(localVideoUrl);
+    setHomeImageUrl(localImageUrl);
     setHydrated(true);
+
+    if (typeof window !== "undefined") {
+      void supabase
+        .from("site_settings")
+        .select("key, value")
+        .in("key", ["homeVideoUrl", "homeImageUrl"])
+        .then(({ data, error }) => {
+          if (error) return;
+          const entries = (data || []) as Array<{ key: string; value?: string | null }>;
+          const nextVideoUrl = entries.find((entry) => entry.key === "homeVideoUrl")?.value?.trim() ?? "";
+          const nextImageUrl = entries.find((entry) => entry.key === "homeImageUrl")?.value?.trim() ?? "";
+          if (nextVideoUrl) {
+            setHomeVideoUrl(nextVideoUrl);
+            save(KEY_HOME_VIDEO, nextVideoUrl);
+          }
+          if (nextImageUrl) {
+            setHomeImageUrl(nextImageUrl);
+            save(KEY_HOME_IMAGE, nextImageUrl);
+          }
+        });
+    }
   }, []);
 
   // Load products from Supabase
@@ -287,6 +320,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (hydrated) save(KEY_SALES_TARGET, salesTarget);
   }, [salesTarget, hydrated]);
 
+  useEffect(() => {
+    if (hydrated) save(KEY_HOME_VIDEO, homeVideoUrl);
+  }, [homeVideoUrl, hydrated]);
+
+  useEffect(() => {
+    if (hydrated) save(KEY_HOME_IMAGE, homeImageUrl);
+  }, [homeImageUrl, hydrated]);
+
   const cartTotal = useMemo(
     () => cart.reduce((s, i) => s + i.price * i.quantity, 0),
     [cart],
@@ -304,6 +345,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     feedbacks,
     expenses,
     salesTarget,
+    homeVideoUrl,
+    homeImageUrl,
     cartTotal,
     cartCount,
 
@@ -594,6 +637,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     setSalesTarget: (value) => setSalesTarget(value),
+    setHomeVideoUrl: (value) => {
+      const next = value.trim();
+      setHomeVideoUrl(next);
+      save(KEY_HOME_VIDEO, next);
+      void supabase.from("site_settings").upsert({ key: "homeVideoUrl", value: next }, { onConflict: "key" }).then(({ error }) => {
+        if (error) console.error("Error saving home video URL:", error);
+      });
+    },
+    setHomeImageUrl: (value) => {
+      const next = value.trim();
+      setHomeImageUrl(next);
+      save(KEY_HOME_IMAGE, next);
+      void supabase.from("site_settings").upsert({ key: "homeImageUrl", value: next }, { onConflict: "key" }).then(({ error }) => {
+        if (error) console.error("Error saving home image URL:", error);
+      });
+    },
 
     loginAdmin: (password) => {
       const ok = password === "40023265a";

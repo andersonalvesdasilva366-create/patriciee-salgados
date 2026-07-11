@@ -4,12 +4,50 @@ import { ArrowRight, Clock, Heart, Sparkles } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useStore } from "@/lib/store";
 
+function HomeMedia({ videoUrl, fallbackImage, imageUrl }: { videoUrl?: string; fallbackImage: string; imageUrl?: string }) {
+  const trimmed = videoUrl?.trim();
+  const imageSource = imageUrl?.trim() || fallbackImage;
+  if (!trimmed) {
+    return <img src={imageSource} alt="Salgados artesanais" className="relative w-full rounded-[2rem] object-cover shadow-glow" />;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const isYouTube = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"].includes(parsed.hostname);
+    if (isYouTube) {
+      const videoId = parsed.searchParams.get("v") ?? parsed.pathname.split("/").filter(Boolean).pop() ?? "";
+      const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}` : trimmed;
+      return (
+        <iframe
+          src={embedUrl}
+          title="Vídeo da Paty"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="relative aspect-[16/10] w-full rounded-[2rem] border-0 object-cover shadow-glow"
+        />
+      );
+    }
+
+    if (/\.(mp4|webm|ogg)(\?.*)?$/.test(parsed.pathname)) {
+      return (
+        <video controls autoPlay loop muted playsInline className="relative aspect-[16/10] w-full rounded-[2rem] object-cover shadow-glow">
+          <source src={trimmed} />
+        </video>
+      );
+    }
+  } catch {
+    // falls back to the image below
+  }
+
+  return <img src={imageSource} alt="Salgados artesanais" className="relative w-full rounded-[2rem] object-cover shadow-glow" />;
+}
+
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
 function HomePage() {
-  const { products } = useStore();
+  const { products, homeVideoUrl, homeImageUrl } = useStore();
   const highlights = products.filter((p) => p.stock > 0 || (p.orderBalance ?? 0) > 0).slice(0, 3);
 
   return (
@@ -42,11 +80,7 @@ function HomePage() {
           </div>
           <div className="relative animate-in fade-in zoom-in-95 duration-700">
             <div className="absolute -inset-4 rounded-[2rem] gradient-warm opacity-20 blur-2xl" />
-            <img
-              src="https://i.ibb.co/wNXzSCMs/P-o-da-paty.png"
-              alt="Salgados artesanais"
-              className="relative w-full rounded-[2rem] object-cover shadow-glow"
-            />
+            <HomeMedia videoUrl={homeVideoUrl} imageUrl={homeImageUrl} fallbackImage="https://i.ibb.co/wNXzSCMs/P-o-da-paty.png" />
           </div>
         </div>
       </section>
