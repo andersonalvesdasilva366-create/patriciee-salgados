@@ -1,12 +1,13 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { brl, formatDateTime } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
-import { Check, Clock, Package, Send, Truck } from "lucide-react";
+import { Check, Clock, Copy, MessageCircle, Package, Send, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/pedido/$id")({
   head: () => ({ meta: [{ title: "Status do pedido — Salgados da Paty" }] }),
@@ -26,6 +27,31 @@ function OrderStatusPage() {
   const order = orders.find((o) => o.id === id);
   const [feedback, setFeedback] = useState(order?.feedback ?? "");
   const [savingFeedback, setSavingFeedback] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [countdownLabel, setCountdownLabel] = useState("45:00");
+  const [qrExpired, setQrExpired] = useState(false);
+  const [copiedPixKey, setCopiedPixKey] = useState(false);
+
+  useEffect(() => {
+    if (!order) return;
+
+    const deadline = new Date(new Date(order.createdAt).getTime() + 45 * 60 * 1000);
+    const updateCountdown = () => {
+      const diff = deadline.getTime() - Date.now();
+      if (diff <= 0) {
+        setCountdownLabel("expirado");
+        setQrExpired(true);
+        return;
+      }
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setCountdownLabel(`${minutes}:${seconds.toString().padStart(2, "0")}`);
+    };
+
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [order]);
 
   if (!order) {
     return (
@@ -39,6 +65,20 @@ function OrderStatusPage() {
   }
 
   const currentIndex = STEPS.findIndex((s) => s.key === order.status);
+  const pixKey = "112879119-60";
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`PIX:${pixKey}|pedido:${order.id}|valor:${order.total.toFixed(2)}`)}`;
+  const whatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá! Tenho uma dúvida sobre o pedido ${order.id.slice(0, 8).toUpperCase()}.`)}`;
+
+  const copyPixKey = async () => {
+    try {
+      await navigator.clipboard.writeText(pixKey);
+      setCopiedPixKey(true);
+      toast.success("Chave Pix copiada!");
+      window.setTimeout(() => setCopiedPixKey(false), 2000);
+    } catch {
+      toast.error("Não foi possível copiar a chave Pix");
+    }
+  };
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
@@ -54,6 +94,47 @@ function OrderStatusPage() {
         <p className="mt-4 text-xs text-muted-foreground">
           Pedido #{order.id.slice(0, 8).toUpperCase()} · {formatDateTime(order.createdAt)}
         </p>
+      </div>
+
+      <div className="mt-8 rounded-3xl border border-border/60 bg-card p-6 shadow-card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-xl font-bold">Pagamento por Pix</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Use a chave abaixo ou escaneie o QR Code. O código fica válido por 45 minutos.</p>
+          </div>
+          <div className={`rounded-full px-3 py-1 text-sm font-medium ${qrExpired ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
+            {qrExpired ? "QR expirado" : `Válido por ${countdownLabel}`}
+          </div>
+        </div>
+
+        {paymentConfirmed ? (
+          <div className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+            <p className="font-semibold text-emerald-700">Obrigado! O pagamento foi confirmado.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Acompanhe o andamento do pedido aqui no site e fique de olho nas próximas etapas da preparação da sua encomenda.</p>
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-4 lg:grid-cols-[220px_1fr]">
+            <div className="flex flex-col items-center rounded-2xl border border-border/60 bg-secondary/40 p-4">
+              <img src={qrCodeUrl} alt="QR Code para pagamento Pix" className="h-48 w-48 rounded-2xl bg-white p-3" />
+              <p className="mt-3 text-sm font-medium">Valor: {brl(order.total)}</p>
+            </div>
+            <div className="flex flex-col justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Chave Pix</p>
+                <div className="mt-2 flex items-center gap-2 rounded-2xl border border-dashed border-border bg-background p-3 font-mono text-sm">
+                  <span className="break-all">{pixKey}</span>
+                  <Button type="button" size="icon" variant="ghost" className="shrink-0 rounded-full" onClick={copyPixKey}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="mt-3 text-sm text-muted-foreground">O QR Code é gerado para esse pedido e fica disponível durante 45 minutos para facilitar o pagamento.</p>
+              </div>
+              <Button className="mt-4 rounded-full" onClick={() => { setPaymentConfirmed(true); toast.success("Pagamento confirmado. Obrigado pela compra!"); }}>
+                Já fiz o pagamento
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Timeline */}
@@ -141,6 +222,16 @@ function OrderStatusPage() {
           </div>
         )}
       </div>
+
+      <a
+        href={whatsappUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow-xl shadow-emerald-600/20 transition hover:-translate-y-0.5 hover:bg-emerald-600"
+      >
+        <MessageCircle className="h-5 w-5" />
+        Falar com a Paty
+      </a>
     </div>
   );
 }

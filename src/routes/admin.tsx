@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { brl, formatDateTime } from "@/lib/format";
-import type { ExpenseEntry, Order, OrderStatus, Product } from "@/lib/types";
+import type { ExpenseEntry, Order, OrderStatus, Product, RevenueEntry } from "@/lib/types";
 import { ArrowUpRight, CalendarDays, CheckCircle2, CircleAlert, CircleDollarSign, Edit, LogOut, MessageSquareText, Package2, Plus, Receipt, Sparkles, Trash2, TrendingUp, WalletCards, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -438,7 +438,7 @@ function FeedbacksPanel() {
 }
 
 function FinancePanel() {
-  const { orders, expenses, products, salesTarget, setSalesTarget, addExpense, deleteExpense } = useStore();
+  const { orders, expenses, revenues, products, salesTarget, setSalesTarget, addExpense, deleteExpense, addRevenue, deleteRevenue } = useStore();
   const [targetInput, setTargetInput] = useState(salesTarget);
   const [averageTicket, setAverageTicket] = useState(60);
   const [historyRange, setHistoryRange] = useState<"all" | "today" | "week" | "month">("month");
@@ -446,16 +446,64 @@ function FinancePanel() {
   const [historySearch, setHistorySearch] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [expenseForm, setExpenseForm] = useState<Omit<ExpenseEntry, "id">>({ description: "", amount: 0, category: "", quantity: 1, status: "pendente", paidAt: new Date().toISOString().slice(0, 10), expectedReturnAt: "", expectedProfit: 0, notes: "" });
+  const [revenueForm, setRevenueForm] = useState<Omit<RevenueEntry, "id">>({ description: "", amount: 0, category: "", receivedAt: new Date().toISOString().slice(0, 10), status: "recebida", notes: "" });
 
-  const revenue = useMemo(() => orders.reduce((sum, order) => sum + order.total, 0), [orders]);
+  const ordersRevenue = useMemo(() => orders.reduce((sum, order) => sum + order.total, 0), [orders]);
+  const manualRevenue = useMemo(() => revenues.reduce((sum, revenue) => sum + revenue.amount, 0), [revenues]);
+  const revenue = ordersRevenue + manualRevenue;
   const soldUnits = useMemo(() => orders.reduce((sum, order) => sum + order.items.reduce((s, item) => s + item.quantity, 0), 0), [orders]);
   const totalExpenses = useMemo(() => expenses.reduce((sum, expense) => sum + expense.amount * (expense.quantity ?? 1), 0), [expenses]);
   const profit = revenue - totalExpenses;
-  const progress = salesTarget > 0 ? Math.min(100, (revenue / salesTarget) * 100) : 0;
-  const remainingToGoal = Math.max(0, salesTarget - revenue);
-  const salesNeeded = averageTicket > 0 ? Math.max(0, Math.ceil(remainingToGoal / averageTicket)) : 0;
-  const estimatedRevenue = revenue + salesNeeded * averageTicket;
-  const projectedMonthlyRevenue = revenue + Math.max(0, remainingToGoal / 30);
+
+  const salesPeriodSummary = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(startOfToday);
+    startOfWeek.setDate(startOfToday.getDate() - 6);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const parseDate = (value: string) => {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    };
+
+    const sumOrders = (from: Date) => orders.reduce((sum, order) => {
+      const createdAt = parseDate(order.createdAt);
+      return createdAt && createdAt >= from ? sum + order.total : sum;
+    }, 0);
+
+    const sumRevenues = (from: Date) => revenues.reduce((sum, revenue) => {
+      const receivedAt = parseDate(revenue.receivedAt);
+      return receivedAt && receivedAt >= from ? sum + revenue.amount : sum;
+    }, 0);
+
+    const dailyRevenue = sumOrders(startOfToday) + sumRevenues(startOfToday);
+    const weeklyRevenue = sumOrders(startOfWeek) + sumRevenues(startOfWeek);
+    const monthlyRevenue = sumOrders(startOfMonth) + sumRevenues(startOfMonth);
+
+    const daysInMonth = now.getDate();
+    const daysRemaining = Math.max(0, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1);
+    const projectedMonthlyRevenue = monthlyRevenue + Math.max(0, (dailyRevenue > 0 ? dailyRevenue : 0) * daysRemaining);
+
+    return {
+      dailyRevenue,
+      weeklyRevenue,
+      monthlyRevenue,
+      projectedMonthlyRevenue,
+      progress: salesTarget > 0 ? Math.min(100, (monthlyRevenue / salesTarget) * 100) : 0,
+      remainingToGoal: Math.max(0, salesTarget - monthlyRevenue),
+      salesNeeded: averageTicket > 0 ? Math.max(0, Math.ceil(Math.max(0, salesTarget - monthlyRevenue) / averageTicket)) : 0,
+      estimatedRevenue: monthlyRevenue + Math.max(0, salesTarget - monthlyRevenue),
+      dailyAverage: dailyRevenue > 0 ? dailyRevenue / Math.max(1, daysInMonth) : 0,
+      daysRemaining,
+    };
+  }, [averageTicket, orders, revenues, salesTarget]);
+
+  const progress = salesPeriodSummary.progress;
+  const remainingToGoal = salesPeriodSummary.remainingToGoal;
+  const salesNeeded = salesPeriodSummary.salesNeeded;
+  const estimatedRevenue = salesPeriodSummary.estimatedRevenue;
+  const projectedMonthlyRevenue = salesPeriodSummary.projectedMonthlyRevenue;
   const categorySummary = useMemo(() => {
     const map = expenses.reduce<Record<string, number>>((acc, expense) => {
       const category = expense.category?.trim() || "Sem categoria";
@@ -549,11 +597,11 @@ function FinancePanel() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
+      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr_0.9fr_0.9fr]">
         <div className="rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-5 shadow-card">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground"><CircleDollarSign className="h-4 w-4 text-primary" />Receita total</div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><CircleDollarSign className="h-4 w-4 text-primary" />Entradas de caixa</div>
           <p className="mt-2 text-3xl font-bold">{brl(revenue)}</p>
-          <p className="mt-2 text-sm text-muted-foreground">Valor consolidado de vendas até hoje.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Vendas + receitas manuais registradas até hoje.</p>
         </div>
         <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
           <div className="flex items-center gap-2 text-sm text-muted-foreground"><Package2 className="h-4 w-4 text-primary" />Unidades vendidas</div>
@@ -561,14 +609,33 @@ function FinancePanel() {
           <p className="mt-2 text-sm text-muted-foreground">Quantidade total de itens vendidos.</p>
         </div>
         <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Receipt className="h-4 w-4 text-primary" />Gastos</div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Receipt className="h-4 w-4 text-primary" />Saídas</div>
           <p className="mt-2 text-2xl font-bold">{brl(totalExpenses)}</p>
           <p className="mt-2 text-sm text-muted-foreground">Somatório de todos os gastos cadastrados.</p>
         </div>
-        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-5 shadow-card">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4 text-emerald-600" />Lucro líquido</div>
-          <p className="mt-2 text-3xl font-bold text-emerald-700">{brl(profit)}</p>
-          <p className="mt-2 text-sm text-muted-foreground">Receita menos despesas registradas.</p>
+        <div className={`rounded-3xl border p-5 shadow-card ${profit >= 0 ? "border-emerald-500/20 bg-emerald-500/10" : "border-destructive/20 bg-destructive/10"}`}>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className={`h-4 w-4 ${profit >= 0 ? "text-emerald-600" : "text-destructive"}`} />Saldo líquido</div>
+          <p className={`mt-2 text-3xl font-bold ${profit >= 0 ? "text-emerald-700" : "text-destructive"}`}>{brl(profit)}</p>
+          <p className="mt-2 text-sm text-muted-foreground">Entradas menos saídas registradas.</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <div className="rounded-2xl border border-border/60 bg-card p-3">
+          <p className="text-sm text-muted-foreground">Hoje</p>
+          <p className="mt-1 text-lg font-semibold">{brl(salesPeriodSummary.dailyRevenue)}</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-card p-3">
+          <p className="text-sm text-muted-foreground">Semana</p>
+          <p className="mt-1 text-lg font-semibold">{brl(salesPeriodSummary.weeklyRevenue)}</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-card p-3">
+          <p className="text-sm text-muted-foreground">Mês</p>
+          <p className="mt-1 text-lg font-semibold">{brl(salesPeriodSummary.monthlyRevenue)}</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-card p-3">
+          <p className="text-sm text-muted-foreground">Meta restante</p>
+          <p className={`mt-1 text-lg font-semibold ${remainingToGoal > 0 ? "text-amber-700" : "text-emerald-700"}`}>{brl(remainingToGoal)}</p>
         </div>
       </div>
 
@@ -589,6 +656,7 @@ function FinancePanel() {
           <TabsTrigger value="overview" className="rounded-full">Resumo</TabsTrigger>
           <TabsTrigger value="results" className="rounded-full">Resultados</TabsTrigger>
           <TabsTrigger value="expenses" className="rounded-full">Gastos</TabsTrigger>
+          <TabsTrigger value="revenue" className="rounded-full">Receitas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-4">
@@ -801,6 +869,52 @@ function FinancePanel() {
               <div className="space-y-2"><Label>Lucro estimado</Label><Input type="number" min="0" step="0.01" value={expenseForm.expectedProfit ?? 0} onChange={(e) => setExpenseForm({ ...expenseForm, expectedProfit: Number(e.target.value) })} className="rounded-xl" /></div>
               <div className="space-y-2"><Label>Observações</Label><Textarea value={expenseForm.notes ?? ""} onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })} className="rounded-xl" /></div>
               <Button className="w-full rounded-full" onClick={async () => { if (!expenseForm.description.trim()) { toast.error("Descreva o gasto"); return; } await addExpense(expenseForm); setExpenseForm({ description: "", amount: 0, category: "", quantity: 1, status: "pendente", paidAt: new Date().toISOString().slice(0, 10), expectedReturnAt: "", expectedProfit: 0, notes: "" }); toast.success("Gasto adicionado"); }}>Adicionar gasto</Button>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="revenue" className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+            <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">Receitas registradas</h2><span className="text-sm text-muted-foreground">Entradas manuais de caixa</span></div>
+            {revenues.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma receita registrada ainda.</p> : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/60 text-left text-muted-foreground">
+                      <th className="py-2">Descrição</th>
+                      <th className="py-2">Categoria</th>
+                      <th className="py-2">Valor</th>
+                      <th className="py-2">Data</th>
+                      <th className="py-2">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {revenues.map((revenueEntry) => (
+                      <tr key={revenueEntry.id} className="border-b border-border/40 align-top">
+                        <td className="py-2 font-medium">{revenueEntry.description}</td>
+                        <td className="py-2">{revenueEntry.category}</td>
+                        <td className="py-2">{brl(revenueEntry.amount)}</td>
+                        <td className="py-2">{revenueEntry.receivedAt}</td>
+                        <td className="py-2"><Button size="icon" variant="ghost" className="rounded-full" onClick={() => deleteRevenue(revenueEntry.id)}><Trash2 className="h-4 w-4" /></Button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-card">
+            <div className="mb-3 flex items-center gap-2"><CircleDollarSign className="h-4 w-4 text-primary" /><h2 className="font-semibold">Adicionar receita</h2></div>
+            <div className="space-y-3">
+              <div className="space-y-2"><Label>Descrição</Label><Input value={revenueForm.description} onChange={(e) => setRevenueForm({ ...revenueForm, description: e.target.value })} className="rounded-xl" placeholder="Ex.: Recebimento de venda" /></div>
+              <div className="space-y-2"><Label>Categoria / Origem</Label><Input value={revenueForm.category} onChange={(e) => setRevenueForm({ ...revenueForm, category: e.target.value })} className="rounded-xl" placeholder="Ex.: Pix, Delivery, Cliente" /></div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Valor (R$)</Label><Input type="number" min="0" step="0.01" value={revenueForm.amount} onChange={(e) => setRevenueForm({ ...revenueForm, amount: Number(e.target.value) })} className="rounded-xl" /></div>
+                <div className="space-y-2"><Label>Data</Label><Input type="date" value={revenueForm.receivedAt} onChange={(e) => setRevenueForm({ ...revenueForm, receivedAt: e.target.value })} className="rounded-xl" /></div>
+              </div>
+              <div className="space-y-2"><Label>Status</Label><Select value={revenueForm.status ?? "recebida"} onValueChange={(value) => setRevenueForm({ ...revenueForm, status: value as RevenueEntry["status"] })}><SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="recebida">Recebida</SelectItem><SelectItem value="pendente">Pendente</SelectItem><SelectItem value="parcial">Parcial</SelectItem></SelectContent></Select></div>
+              <div className="space-y-2"><Label>Observações</Label><Textarea value={revenueForm.notes ?? ""} onChange={(e) => setRevenueForm({ ...revenueForm, notes: e.target.value })} className="rounded-xl" /></div>
+              <Button className="w-full rounded-full" onClick={async () => { if (!revenueForm.description.trim()) { toast.error("Descreva a receita"); return; } await addRevenue(revenueForm); setRevenueForm({ description: "", amount: 0, category: "", receivedAt: new Date().toISOString().slice(0, 10), status: "recebida", notes: "" }); toast.success("Receita adicionada"); }}>Adicionar receita</Button>
             </div>
           </div>
         </TabsContent>

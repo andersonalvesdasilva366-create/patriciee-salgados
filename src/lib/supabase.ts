@@ -72,6 +72,36 @@ export type Database = {
           feedback?: string | null;
         };
       };
+      revenue_entries: {
+        Row: {
+          id: string;
+          description: string | null;
+          amount: number | null;
+          category: string | null;
+          received_at: string | null;
+          status: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          description?: string | null;
+          amount?: number | null;
+          category?: string | null;
+          received_at?: string | null;
+          status?: string | null;
+          notes?: string | null;
+        };
+        Update: {
+          description?: string | null;
+          amount?: number | null;
+          category?: string | null;
+          received_at?: string | null;
+          status?: string | null;
+          notes?: string | null;
+        };
+      };
     };
   };
 };

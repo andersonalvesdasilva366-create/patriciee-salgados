@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { CartItem, ExpenseEntry, Order, OrderStatus, Product, ProductFeedback } from "./types";
+import type { CartItem, ExpenseEntry, Order, OrderStatus, Product, ProductFeedback, RevenueEntry } from "./types";
 import { uid } from "./format";
 import { sendOrderToTelegram } from "./telegram";
 import { supabase } from "./supabase";
@@ -8,6 +8,7 @@ const KEY_CART = "sdp:cart";
 const KEY_ADMIN = "sdp:admin";
 const KEY_FEEDBACKS = "sdp:feedbacks";
 const KEY_EXPENSES = "sdp:expenses";
+const KEY_REVENUES = "sdp:revenues";
 const KEY_SALES_TARGET = "sdp:salesTarget";
 const KEY_HOME_VIDEO = "sdp:homeVideoUrl";
 const KEY_HOME_IMAGE = "sdp:homeImageUrl";
@@ -59,6 +60,7 @@ type Ctx = {
   isAdmin: boolean;
   feedbacks: ProductFeedback[];
   expenses: ExpenseEntry[];
+  revenues: RevenueEntry[];
   salesTarget: number;
   homeVideoUrl: string;
   homeImageUrl: string;
@@ -88,6 +90,8 @@ type Ctx = {
   approveFeedback: (id: string, approved: boolean) => Promise<void>;
   addExpense: (expense: Omit<ExpenseEntry, "id">) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
+  addRevenue: (revenue: Omit<RevenueEntry, "id">) => Promise<void>;
+  deleteRevenue: (id: string) => Promise<void>;
   setSalesTarget: (value: number) => void;
   setHomeVideoUrl: (value: string) => void;
   setHomeImageUrl: (value: string) => void;
@@ -222,12 +226,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [feedbacks, setFeedbacks] = useState<ProductFeedback[]>([]);
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
+  const [revenues, setRevenues] = useState<RevenueEntry[]>([]);
   const [salesTarget, setSalesTarget] = useState(5000);
   const [homeVideoUrl, setHomeVideoUrl] = useState("");
   const [homeImageUrl, setHomeImageUrl] = useState("");
   const [hydrated, setHydrated] = useState(false);
 
   // Load cart and admin from localStorage
+  const loadRevenueEntriesFromSupabase = async () => {
+    if (typeof window === "undefined") return;
+    try {
+      const { data, error } = await supabase.from("revenue_entries").select("*").order("received_at", { ascending: false });
+      if (error) {
+        const message = typeof error.message === "string" ? error.message : "";
+        if (/does not exist|relation .*revenue_entries|cannot find/i.test(message)) return;
+        console.error("Error loading revenue entries:", error);
+        return;
+      }
+
+      setRevenues((data || []).map((row: Record<string, unknown>) => ({
+        id: String(row.id ?? ""),
+        description: String(row.description ?? ""),
+        amount: Number(row.amount ?? 0),
+        category: String(row.category ?? ""),
+        receivedAt: String((row.received_at as string | undefined) ?? (row.receivedAt as string | undefined) ?? ""),
+        status: (row.status as RevenueEntry["status"] | undefined) ?? "recebida",
+        notes: typeof row.notes === "string" ? row.notes : "",
+      })));
+    } catch (err) {
+      console.error("Error loading revenue entries:", err);
+    }
+  };
+
   useEffect(() => {
     const localVideoUrl = load<string>(KEY_HOME_VIDEO, "");
     const localImageUrl = load<string>(KEY_HOME_IMAGE, "");
@@ -235,12 +265,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setIsAdmin(load<boolean>(KEY_ADMIN, false));
     setFeedbacks(sanitizeFeedbacks(load<unknown>(KEY_FEEDBACKS, DEFAULT_FEEDBACKS)));
     setExpenses(load<ExpenseEntry[]>(KEY_EXPENSES, []));
+    setRevenues(load<RevenueEntry[]>(KEY_REVENUES, []));
     setSalesTarget(load<number>(KEY_SALES_TARGET, 5000));
     setHomeVideoUrl(localVideoUrl);
     setHomeImageUrl(localImageUrl);
     setHydrated(true);
 
     if (typeof window !== "undefined") {
+      void loadRevenueEntriesFromSupabase();
       void supabase
         .from("site_settings")
         .select("key, value")
@@ -335,6 +367,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [expenses, hydrated]);
 
   useEffect(() => {
+    if (hydrated) save(KEY_REVENUES, revenues);
+  }, [revenues, hydrated]);
+
+  useEffect(() => {
     if (hydrated) save(KEY_SALES_TARGET, salesTarget);
   }, [salesTarget, hydrated]);
 
@@ -362,6 +398,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     isAdmin,
     feedbacks,
     expenses,
+    revenues,
     salesTarget,
     homeVideoUrl,
     homeImageUrl,
@@ -656,6 +693,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     deleteExpense: async (id) => {
       setExpenses((prev) => prev.filter((item) => item.id !== id));
+    },
+
+    addRevenue: async (revenue) => {
+      const entry: RevenueEntry = {
+        id: uid(),
+        description: revenue.description.trim(),
+        amount: Number(revenue.amount) || 0,
+        category: revenue.category.trim(),
+        receivedAt: revenue.receivedAt,
+        status: revenue.status ?? "recebida",
+        notes: revenue.notes,
+      };
+      setRevenues((prev) => [entry, ...prev]);
+
+      if (typeof window === "undefined") return;
+      try {
+        const { error } = await supabase.from("revenue_entries").insert([{
+          id: entry.id,
+          description: entry.description,
+          amount: entry.amount,
+          category: entry.category,
+          received_at: entry.receivedAt,
+          status: entry.status ?? "recebida",
+          notes: entry.notes ?? "",
+        }]);
+        if (error) {
+          const message = typeof error.message === "string" ? error.message : "";
+          if (!/does not exist|relation .*revenue_entries|cannot find/i.test(message)) {
+            console.error("Error saving revenue entry:", error);
+          }
+        }
+      } catch (err) {
+        console.error("Error saving revenue entry:", err);
+      }
+    },
+
+    deleteRevenue: async (id) => {
+      if (typeof window === "undefined") return;
+      try {
+        const { error } = await supabase.from("revenue_entries").delete().eq("id", id);
+        if (error) {
+          const message = typeof error.message === "string" ? error.message : "";
+          if (!/does not exist|relation .*revenue_entries|cannot find/i.test(message)) {
+            console.error("Error deleting revenue entry:", error);
+          }
+        }
+      } catch (err) {
+        console.error("Error deleting revenue entry:", err);
+      }
+      setRevenues((prev) => prev.filter((item) => item.id !== id));
     },
 
     setSalesTarget: (value) => setSalesTarget(value),

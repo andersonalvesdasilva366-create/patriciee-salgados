@@ -27,6 +27,16 @@ export type ProductFeedback = {
   createdAt: string;
 };
 
+export type RevenueEntry = {
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  receivedAt: string;
+  status?: "recebida" | "pendente" | "parcial";
+  notes?: string;
+};
+
 export type ExpenseEntry = {
   id: string;
   description: string;

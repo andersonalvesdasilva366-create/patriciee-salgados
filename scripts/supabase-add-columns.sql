@@ -32,6 +32,19 @@ ALTER TABLE products
 -- Opcional: atualiza cache de esquema do PostgREST (pode ser necessário)
 -- SELECT pg_reload_conf();
 
+-- Cria a tabela de entradas de caixa / receitas manuais do admin
+CREATE TABLE IF NOT EXISTS public.revenue_entries (
+  id text PRIMARY KEY,
+  description text NOT NULL DEFAULT '',
+  amount numeric NOT NULL DEFAULT 0,
+  category text NOT NULL DEFAULT '',
+  received_at date DEFAULT CURRENT_DATE,
+  status text NOT NULL DEFAULT 'recebida',
+  notes text DEFAULT '',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
 -- Observação: execute estas queries no Supabase SQL Editor (SQL) do projeto remoto.
 -- Após aplicar, re-teste o POST/GET da API para confirmar que os produtos com
 -- campos "partner", "promotion" e as novas colunas de mídia são aceitos e retornados.
