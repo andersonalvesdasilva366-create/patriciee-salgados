@@ -67,7 +67,7 @@ function OrderStatusPage() {
   const currentIndex = STEPS.findIndex((s) => s.key === order.status);
   const pixKey = "112879119-60";
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`PIX:${pixKey}|pedido:${order.id}|valor:${order.total.toFixed(2)}`)}`;
-  const whatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá! Tenho uma dúvida sobre o pedido ${order.id.slice(0, 8).toUpperCase()}.`)}`;
+  const whatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá! Gostaria de tirar uma dúvida sobre o pedido ${order.id.slice(0, 8).toUpperCase()} 😊`)}`;
 
   const copyPixKey = async () => {
     try {
@@ -100,7 +100,7 @@ function OrderStatusPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="font-display text-xl font-bold">Pagamento por Pix</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Use a chave abaixo ou escaneie o QR Code. O código fica válido por 45 minutos.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Use a chave abaixo ou escaneie o QR Code com o app do seu banco. O código fica válido por 45 minutos.</p>
           </div>
           <div className={`rounded-full px-3 py-1 text-sm font-medium ${qrExpired ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
             {qrExpired ? "QR expirado" : `Válido por ${countdownLabel}`}
@@ -116,7 +116,8 @@ function OrderStatusPage() {
           <div className="mt-4 grid gap-4 lg:grid-cols-[220px_1fr]">
             <div className="flex flex-col items-center rounded-2xl border border-border/60 bg-secondary/40 p-4">
               <img src={qrCodeUrl} alt="QR Code para pagamento Pix" className="h-48 w-48 rounded-2xl bg-white p-3" />
-              <p className="mt-3 text-sm font-medium">Valor: {brl(order.total)}</p>
+              <p className="mt-3 text-center text-sm text-muted-foreground">Abra o app do seu banco e escolha a opção Pix por QR Code para ler este código.</p>
+              <p className="mt-2 text-sm font-medium">Valor: {brl(order.total)}</p>
             </div>
             <div className="flex flex-col justify-between">
               <div>
