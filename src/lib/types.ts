@@ -1,3 +1,5 @@
+export type ProductMediaType = "image" | "video";
+
 export type Product = {
   id: string;
   name: string;
@@ -11,6 +13,8 @@ export type Product = {
   offerLabel?: string;
   highlightDescription?: string;
   featured?: boolean;
+  mediaUrl?: string;
+  mediaType?: ProductMediaType;
 };
 
 export type ProductFeedback = {

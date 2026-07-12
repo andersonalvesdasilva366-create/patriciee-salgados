@@ -291,15 +291,56 @@ function ProductDialog({ product, onSubmit }: { product: Product | null; onSubmi
     offerLabel: product?.offerLabel ?? "",
     highlightDescription: product?.highlightDescription ?? "",
     featured: product?.featured ?? false,
+    mediaUrl: product?.mediaUrl ?? "",
+    mediaType: product?.mediaType ?? "image",
   });
+  const previewUrl = (form.mediaUrl?.trim() || form.imageUrl?.trim() || "").trim();
+  const previewLabel = form.mediaType === "video" ? "Pré-visualização do vídeo" : "Pré-visualização da imagem";
+
+  useEffect(() => {
+    setForm({
+      name: product?.name ?? "",
+      description: product?.description ?? "",
+      imageUrl: product?.imageUrl ?? "",
+      price: product?.price ?? 0,
+      stock: product?.stock ?? 0,
+      orderBalance: product?.orderBalance ?? 0,
+      partner: product?.partner ?? false,
+      promotion: product?.promotion ?? false,
+      offerLabel: product?.offerLabel ?? "",
+      highlightDescription: product?.highlightDescription ?? "",
+      featured: product?.featured ?? false,
+      mediaUrl: product?.mediaUrl ?? "",
+      mediaType: product?.mediaType ?? "image",
+    });
+  }, [product]);
 
   return (
     <DialogContent className="rounded-3xl">
       <DialogHeader><DialogTitle>{product ? "Editar produto" : "Novo produto"}</DialogTitle></DialogHeader>
-      <form onSubmit={async (e) => { e.preventDefault(); if (!form.name.trim() || !form.imageUrl.trim()) { toast.error("Preencha nome e imagem"); return; } await onSubmit({ ...form, name: form.name.trim(), description: form.description.trim(), imageUrl: form.imageUrl.trim(), price: Number(form.price) || 0, stock: Math.max(0, Math.floor(Number(form.stock) || 0)), orderBalance: Math.max(0, Math.floor(Number(form.orderBalance) || 0)), offerLabel: form.offerLabel?.trim() ?? "", highlightDescription: form.highlightDescription?.trim() ?? "", featured: Boolean(form.featured), }); }} className="space-y-4">
+      <form onSubmit={async (e) => { e.preventDefault(); if (!form.name.trim() || !form.imageUrl.trim()) { toast.error("Preencha nome e imagem"); return; } await onSubmit({ ...form, name: form.name.trim(), description: form.description.trim(), imageUrl: form.imageUrl.trim(), price: Number(form.price) || 0, stock: Math.max(0, Math.floor(Number(form.stock) || 0)), orderBalance: Math.max(0, Math.floor(Number(form.orderBalance) || 0)), offerLabel: form.offerLabel?.trim() ?? "", highlightDescription: form.highlightDescription?.trim() ?? "", featured: Boolean(form.featured), mediaUrl: form.mediaUrl?.trim() ?? "", mediaType: (form.mediaType === "video" ? "video" : "image") as "image" | "video", }); }} className="space-y-4">
         <div className="space-y-2"><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-xl" /></div>
         <div className="space-y-2"><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded-xl" /></div>
         <div className="space-y-2"><Label>URL da imagem</Label><Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} className="rounded-xl" placeholder="https://..." /></div>
+        <div className="space-y-2"><Label>URL da mídia do produto</Label><Input value={form.mediaUrl ?? ""} onChange={(e) => setForm({ ...form, mediaUrl: e.target.value })} className="rounded-xl" placeholder="https://.../video.mp4 ou imagem.jpg" /></div>
+        <div className="space-y-2"><Label>Tipo da mídia</Label><Select value={form.mediaType ?? "image"} onValueChange={(value) => setForm({ ...form, mediaType: value as "image" | "video" })}><SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="image">Imagem</SelectItem><SelectItem value="video">Vídeo</SelectItem></SelectContent></Select></div>
+        <div className="rounded-2xl border border-border/60 bg-secondary/50 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <Label>{previewLabel}</Label>
+            <Badge variant="secondary">{form.mediaType === "video" ? "Vídeo" : "Imagem"}</Badge>
+          </div>
+          {previewUrl ? (
+            form.mediaType === "video" ? (
+              <video src={previewUrl} controls muted autoPlay loop playsInline className="h-40 w-full rounded-xl object-cover bg-muted" />
+            ) : (
+              <img src={previewUrl} alt="Preview do produto" className="h-40 w-full rounded-xl object-cover bg-muted" />
+            )
+          ) : (
+            <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
+              Cole uma URL para visualizar a mídia aqui.
+            </div>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2"><Label>Preço (R$)</Label><Input type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} className="rounded-xl" /></div>
           <div className="space-y-2"><Label>Saldo de estoque</Label><Input type="number" min="0" step="1" value={form.stock} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} className="rounded-xl" /></div>

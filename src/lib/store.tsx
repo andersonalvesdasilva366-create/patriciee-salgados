@@ -96,6 +96,13 @@ type Ctx = {
 const StoreContext = createContext<Ctx | null>(null);
 
 function normalizeProduct(row: Record<string, unknown>): Product {
+  const mediaTypeRaw = String(
+    (row.mediaType as string | undefined) ??
+      (row.mediatype as string | undefined) ??
+      (row.media_type as string | undefined) ??
+      "image",
+  ).toLowerCase();
+
   return {
     id: String(row.id ?? ""),
     name: String(row.name ?? ""),
@@ -144,15 +151,24 @@ function normalizeProduct(row: Record<string, unknown>): Product {
         (row.featured as number | undefined) ??
         false,
     ),
+    mediaUrl: String(
+      (row.mediaUrl as string | undefined) ??
+        (row.mediarurl as string | undefined) ??
+        (row.media_url as string | undefined) ??
+        "",
+    ),
+    mediaType: mediaTypeRaw === "video" ? "video" : "image",
   };
 }
 
 function buildProductPayload(
-  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean },
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean; mediaUrl?: string | null; mediaType?: "image" | "video" },
   variant: "camel" | "lower" | "snake",
 ) {
   const imageKey = variant === "camel" ? "imageUrl" : variant === "lower" ? "imageurl" : "image_url";
   const orderBalanceKey = variant === "camel" ? "orderBalance" : variant === "lower" ? "orderbalance" : "order_balance";
+  const mediaUrlKey = variant === "camel" ? "mediaUrl" : variant === "lower" ? "mediaurl" : "media_url";
+  const mediaTypeKey = variant === "camel" ? "mediaType" : variant === "lower" ? "mediatype" : "media_type";
   const partnerKey = "partner";
   const promotionKey = "promotion";
 
@@ -165,12 +181,14 @@ function buildProductPayload(
     ...(values.orderBalance !== undefined && { [orderBalanceKey]: values.orderBalance }),
     ...(values.partner !== undefined && { [partnerKey]: values.partner }),
     ...(values.promotion !== undefined && { [promotionKey]: values.promotion }),
+    ...(values.mediaUrl !== undefined && { [mediaUrlKey]: values.mediaUrl }),
+    ...(values.mediaType !== undefined && { [mediaTypeKey]: values.mediaType }),
   };
 }
 
 async function writeProductWithFallback(
   operation: "insert" | "update",
-  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean },
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean; mediaUrl?: string | null; mediaType?: "image" | "video" },
   id?: string,
 ) {
   const payloads = [
@@ -377,6 +395,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           offerLabel: p.offerLabel,
           highlightDescription: p.highlightDescription,
           featured: p.featured,
+          mediaUrl: p.mediaUrl,
+          mediaType: p.mediaType,
         };
 
         setProducts((prev) => [optimisticProduct, ...prev]);
@@ -404,6 +424,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...(patch.orderBalance !== undefined && { orderBalance: patch.orderBalance }),
             ...(patch.partner !== undefined && { partner: patch.partner }),
             ...(patch.promotion !== undefined && { promotion: patch.promotion }),
+            ...(patch.mediaUrl !== undefined && { mediaUrl: patch.mediaUrl }),
+            ...(patch.mediaType !== undefined && { mediaType: patch.mediaType }),
           },
           id,
         );
