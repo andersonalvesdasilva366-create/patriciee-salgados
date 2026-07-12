@@ -52,6 +52,8 @@ export function ProductCard({ product }: { product: Product }) {
   const approvedFeedback = feedbacks.filter((item) => item.approved && !item.isBot && item.productId === product.id);
   const detailMediaUrl = (product.mediaUrl ?? "").trim() || product.imageUrl;
   const shouldRenderVideo = product.mediaType === "video" && !!detailMediaUrl;
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 640 : false;
+  const shouldShowVideoInDialog = shouldRenderVideo && !isMobile;
 
   useEffect(() => {
     if (!showDetailsDialog) {
@@ -229,13 +231,13 @@ export function ProductCard({ product }: { product: Product }) {
       </article>
 
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{product.name}</DialogTitle>
+        <DialogContent className="max-h-[92vh] max-w-[100vw] overflow-y-auto rounded-none p-3 sm:max-w-xl sm:rounded-3xl sm:p-4" onPointerDownOutside={() => setShowDetailsDialog(false)}>
+          <DialogHeader className="px-1 pb-1">
+            <DialogTitle className="text-lg font-semibold">{product.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-muted">
-              {shouldRenderVideo ? (
+          <div className="space-y-2 px-1">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted sm:aspect-[16/10]">
+              {shouldShowVideoInDialog ? (
                 <video
                   ref={dialogVideoRef}
                   src={detailMediaUrl}
@@ -244,14 +246,14 @@ export function ProductCard({ product }: { product: Product }) {
                   muted
                   loop
                   playsInline
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-contain"
                 />
               ) : (
                 <img src={detailMediaUrl} alt={product.name} className="h-full w-full object-cover" />
               )}
             </div>
             <div className="space-y-2">
-              <p className="text-sm leading-6 text-muted-foreground">{product.description}</p>
+              <p className="text-sm leading-5 text-muted-foreground">{product.description}</p>
               {product.highlightDescription && (
                 <div className="rounded-2xl border border-primary/20 bg-primary/10 p-3 text-sm text-primary">
                   <p className="font-semibold">{product.offerLabel || "Destaque"}</p>
@@ -259,7 +261,7 @@ export function ProductCard({ product }: { product: Product }) {
                 </div>
               )}
               <div className="flex items-center justify-between gap-3">
-                <span className="text-2xl font-bold text-primary">{brl(product.price)}</span>
+                <span className="text-xl font-bold text-primary">{brl(product.price)}</span>
                 <span className="text-sm text-muted-foreground">{stockAvailable > 0 ? `${stockAvailable} disponíveis` : orderAvailable > 0 ? `${orderAvailable} para encomenda` : "Esgotado"}</span>
               </div>
             </div>
@@ -271,7 +273,7 @@ export function ProductCard({ product }: { product: Product }) {
                   toast.success(`${product.name} adicionado ao carrinho`);
                 }}
                 variant="outline"
-                className="flex-1 rounded-full"
+                className="flex-1 rounded-full px-3 py-2 text-sm"
               >
                 <ShoppingCart className="mr-1 h-4 w-4" />
                 {canAdd ? "Adicionar" : "Sem estoque"}
@@ -281,20 +283,20 @@ export function ProductCard({ product }: { product: Product }) {
                 onClick={() => {
                   setShowOrderDialog(true);
                 }}
-                className="flex-1 rounded-full"
+                className="flex-1 rounded-full px-3 py-2 text-sm"
               >
                 <Package className="mr-1 h-4 w-4" />
                 {canOrder ? "Encomendar" : "Indisponível"}
               </Button>
             </div>
-            <div className="rounded-2xl border border-border/60 bg-secondary/30 p-4">
+            <div className="max-h-56 overflow-y-auto rounded-2xl border border-border/60 bg-secondary/30 p-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <MessageCircleMore className="h-4 w-4 text-primary" /> Comentários
               </div>
               {approvedFeedback.length > 0 ? (
                 <div className="mt-3 space-y-2">
                   {approvedFeedback.map((comment) => (
-                    <div key={comment.id} className="rounded-2xl border border-border/60 bg-background/70 p-2.5 text-sm">
+                    <div key={comment.id} className="rounded-2xl border border-border/60 bg-background/70 p-2 text-sm">
                       <p className="font-medium">{comment.name}</p>
                       <p className="mt-1 text-muted-foreground">{comment.comment}</p>
                     </div>
@@ -303,7 +305,7 @@ export function ProductCard({ product }: { product: Product }) {
               ) : (
                 <p className="mt-3 text-sm text-muted-foreground">Ainda não há comentários aprovados para este produto.</p>
               )}
-              <form onSubmit={handleFeedbackSubmit} className="mt-4 space-y-2">
+              <form onSubmit={handleFeedbackSubmit} className="mt-3 space-y-2">
                 <div className="space-y-2">
                   <Label htmlFor={`feedback-name-${product.id}`}>Seu nome</Label>
                   <Input id={`feedback-name-${product.id}`} value={feedbackName} onChange={(e) => setFeedbackName(e.target.value)} placeholder="Digite seu nome" className="rounded-xl" />
