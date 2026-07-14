@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { QRCodeSVG } from "qrcode.react";
+import { BrCode } from "br-code";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/pedido/$id")({
@@ -99,7 +100,24 @@ function OrderStatusPage() {
   const currentIndex = STEPS.findIndex((s) => s.key === order.status);
   const currentStep = currentIndex >= 0 ? STEPS[currentIndex] : STEPS[0];
   const pixKey = "112879119-60";
-  const pixPayload = `PIX:${pixKey}|pedido:${order.orderCode}|valor:${order.total.toFixed(2)}`;
+  
+  // Generate PIX BrCode with correct EMV format
+  let pixPayload = "";
+  try {
+    const brcode = new BrCode({
+      keyType: "phone",
+      key: pixKey,
+      amount: order.total,
+      name: "PATRICIA SALGADOS",
+      city: "CURITIBA",
+      description: `Pedido ${order.orderCode}`,
+    });
+    pixPayload = brcode.encode();
+  } catch (error) {
+    // Fallback to simple format if br-code fails
+    pixPayload = `PIX:${pixKey}|pedido:${order.orderCode}|valor:${order.total.toFixed(2)}`;
+  }
+  
   const whatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá! Gostaria de tirar uma dúvida sobre o pedido ${order.orderCode} 😊`)}`;
   const adminWhatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá, Anderson! Vim pelo site e gostaria de falar sobre meu pedido ${order.orderCode} ou tirar mais informações sobre os salgados da Paty.`)}`;
   const shouldShowAdminMessage = Boolean(order.adminMessage && ["agendado", "enviado"].includes(order.status));
