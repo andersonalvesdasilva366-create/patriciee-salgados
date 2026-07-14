@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { QRCodeSVG } from "qrcode.react";
-import { BrCode } from "br-code";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/pedido/$id")({
@@ -37,24 +36,9 @@ function OrderStatusPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(order?.createdAt ?? null);
 
   useEffect(() => {
-    if (!order) return;
-
-    const deadline = new Date(new Date(order.createdAt).getTime() + 45 * 60 * 1000);
-    const updateCountdown = () => {
-      const diff = deadline.getTime() - Date.now();
-      if (diff <= 0) {
-        setCountdownLabel("expirado");
-        setQrExpired(true);
-        return;
-      }
-      const minutes = Math.floor(diff / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-      setCountdownLabel(`${minutes}:${seconds.toString().padStart(2, "0")}`);
-    };
-
-    updateCountdown();
-    const timer = window.setInterval(updateCountdown, 1000);
-    return () => window.clearInterval(timer);
+    // PIX is now static and always valid, no countdown needed
+    setQrExpired(false);
+    setCountdownLabel("Sempre válido");
   }, [order]);
 
   useEffect(() => {
@@ -99,24 +83,9 @@ function OrderStatusPage() {
 
   const currentIndex = STEPS.findIndex((s) => s.key === order.status);
   const currentStep = currentIndex >= 0 ? STEPS[currentIndex] : STEPS[0];
-  const pixKey = "112879119-60";
-  
-  // Generate PIX BrCode with correct EMV format
-  let pixPayload = "";
-  try {
-    const brcode = new BrCode({
-      keyType: "phone",
-      key: pixKey,
-      amount: order.total,
-      name: "PATRICIA SALGADOS",
-      city: "CURITIBA",
-      description: `Pedido ${order.orderCode}`,
-    });
-    pixPayload = brcode.encode();
-  } catch (error) {
-    // Fallback to simple format if br-code fails
-    pixPayload = `PIX:${pixKey}|pedido:${order.orderCode}|valor:${order.total.toFixed(2)}`;
-  }
+  const pixKey = "368b692a15-5505-4127-9909-b4acd2b754b4";
+  // Static PIX QR Code (Pix Copia e Cola) - Customer enters the amount in their bank app
+  const pixPayload = "00020101021126580014br.gov.bcb.pix01368b692a15-5505-4127-9909-b4acd2b754b45204000053039865802BR5917ANDERSON DA SILVA6008CURITIBA62070503***6304EF82";
   
   const whatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá! Gostaria de tirar uma dúvida sobre o pedido ${order.orderCode} 😊`)}`;
   const adminWhatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá, Anderson! Vim pelo site e gostaria de falar sobre meu pedido ${order.orderCode} ou tirar mais informações sobre os salgados da Paty.`)}`;
@@ -173,10 +142,10 @@ function OrderStatusPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="font-display text-xl font-bold">Pagamento por Pix</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Use a chave abaixo ou escaneie o QR Code com o app do seu banco. O código fica válido por 45 minutos.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Escaneie o QR Code ou copie a chave Pix abaixo e insira o valor <strong>{brl(order.total)}</strong> no app do seu banco.</p>
           </div>
           <div className={`rounded-full px-3 py-1 text-sm font-medium ${qrExpired ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
-            {qrExpired ? "QR expirado" : `Válido por ${countdownLabel}`}
+            {qrExpired ? "QR expirado" : "Sempre válido"}
           </div>
         </div>
 
@@ -191,19 +160,19 @@ function OrderStatusPage() {
               <div className="rounded-2xl bg-white p-3">
                 <QRCodeSVG value={pixPayload} size={192} level="M" includeMargin={true} />
               </div>
-              <p className="mt-3 text-center text-sm text-muted-foreground">Abra o app do seu banco e escolha a opção Pix por QR Code para ler este código.</p>
-              <p className="mt-2 text-sm font-medium">Valor: {brl(order.total)}</p>
+              <p className="mt-3 text-center text-sm text-muted-foreground">Abra o app do seu banco e escaneie este QR Code. Você inserirá o valor na sequência.</p>
+              <p className="mt-2 text-center text-xs text-muted-foreground">Valor a pagar: <span className="font-bold text-foreground">{brl(order.total)}</span></p>
             </div>
             <div className="flex flex-col justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Chave Pix</p>
+                <p className="text-sm text-muted-foreground">Chave Pix (alternativa)</p>
                 <div className="mt-2 flex items-center gap-2 rounded-2xl border border-dashed border-border bg-background p-3 font-mono text-sm">
                   <span className="break-all">{pixKey}</span>
                   <Button type="button" size="icon" variant="ghost" className="shrink-0 rounded-full" onClick={copyPixKey}>
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground">O QR Code é gerado para esse pedido e fica disponível durante 45 minutos para facilitar o pagamento.</p>
+                <p className="mt-3 text-sm text-muted-foreground">Você também pode copiar a chave Pix acima e pagar digitando na seu banco. Não esqueça de inserir o valor de <strong>{brl(order.total)}</strong>.</p>
               </div>
               <Button className="mt-4 rounded-full" onClick={() => { setPaymentConfirmed(true); toast.success("Pagamento confirmado. Obrigado pela compra!"); }}>
                 Já fiz o pagamento
