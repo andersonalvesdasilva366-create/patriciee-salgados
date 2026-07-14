@@ -78,4 +78,5 @@ export type Order = {
   scheduledAt?: string; // ISO datetime when status === "agendado"
   createdAt: string;
   feedback?: string;
+  adminMessage?: string;
 };

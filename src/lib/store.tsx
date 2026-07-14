@@ -80,7 +80,8 @@ type Ctx = {
 
   // orders
   createOrder: (data: { customerName: string; whatsapp: string; notes: string }) => Promise<Order | undefined>;
-  updateOrderStatus: (id: string, status: OrderStatus, scheduledAt?: string) => Promise<void>;
+  updateOrderStatus: (id: string, status: OrderStatus, scheduledAt?: string, adminMessage?: string) => Promise<void>;
+  refreshOrderStatus: (id: string) => Promise<void>;
   submitOrderFeedback: (id: string, feedback: string) => Promise<void>;
 
   // admin
@@ -162,6 +163,22 @@ function normalizeProduct(row: Record<string, unknown>): Product {
         "",
     ),
     mediaType: mediaTypeRaw === "video" ? "video" : "image",
+  };
+}
+
+function normalizeOrder(row: Record<string, unknown>): Order {
+  return {
+    id: String(row.id ?? ""),
+    customerName: String(row.customername ?? ""),
+    whatsapp: String(row.whatsapp ?? ""),
+    notes: String(row.notes ?? ""),
+    items: Array.isArray(row.items) ? (row.items as CartItem[]) : [],
+    total: Number(row.total ?? 0),
+    status: (row.status as OrderStatus | undefined) ?? "recebido",
+    createdAt: String((row.createdat as string | undefined) ?? (row.createdAt as string | undefined) ?? ""),
+    scheduledAt: (row.scheduledat as string | undefined) ?? (row.scheduledAt as string | undefined) ?? undefined,
+    feedback: typeof row.feedback === "string" ? row.feedback : undefined,
+    adminMessage: typeof row.adminmessage === "string" ? row.adminmessage : typeof row.adminMessage === "string" ? row.adminMessage : undefined,
   };
 }
 
@@ -325,20 +342,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error("Error loading orders:", error);
         return;
       }
-          setOrders(
-        (data || []).map((order) => ({
-          id: order.id,
-          customerName: order.customername,
-          whatsapp: order.whatsapp,
-          notes: order.notes,
-          items: order.items,
-          total: order.total,
-          status: order.status,
-          createdAt: order.createdat,
-          scheduledAt: order.scheduledat,
-          feedback: order.feedback ?? undefined,
-        })),
-      );
+          setOrders((data || []).map((order) => normalizeOrder(order as Record<string, unknown>)));
     } catch (err) {
       console.error("Error loading orders:", err);
     }
@@ -615,12 +619,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     },
 
-      updateOrderStatus: async (id, status, scheduledAt) => {
+      updateOrderStatus: async (id, status, scheduledAt, adminMessage) => {
       if (typeof window === "undefined") return;
       try {
         const { error } = await supabase
           .from("orders")
-          .update({ status, scheduledat: scheduledAt })
+          .update({ status, scheduledat: scheduledAt, adminmessage: adminMessage })
           .eq("id", id);
         
         if (error) {
@@ -630,10 +634,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         
         // Update local state
         setOrders((prev) =>
-          prev.map((o) => (o.id === id ? { ...o, status, scheduledAt } : o)),
+          prev.map((o) => (o.id === id ? { ...o, status, scheduledAt, adminMessage } : o)),
         );
       } catch (err) {
         console.error("Error updating order status:", err);
+      }
+    },
+
+    refreshOrderStatus: async (id) => {
+      if (typeof window === "undefined") return;
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (error || !data) {
+          if (error) console.error("Error refreshing order status:", error);
+          return;
+        }
+
+        const refreshedOrder = normalizeOrder(data as Record<string, unknown>);
+        setOrders((prev) => {
+          const exists = prev.some((order) => order.id === refreshedOrder.id);
+          return exists
+            ? prev.map((order) => (order.id === refreshedOrder.id ? refreshedOrder : order))
+            : [refreshedOrder, ...prev];
+        });
+      } catch (err) {
+        console.error("Error refreshing order status:", err);
       }
     },
 

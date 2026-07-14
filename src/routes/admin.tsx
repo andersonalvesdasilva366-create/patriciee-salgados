@@ -126,6 +126,7 @@ function OrdersPanel() {
 function OrderRow({ order }: { order: Order }) {
   const { updateOrderStatus } = useStore();
   const [scheduled, setScheduled] = useState(order.scheduledAt ?? "");
+  const [adminMessage, setAdminMessage] = useState(order.adminMessage ?? "");
 
   return (
     <li className="rounded-2xl border border-border/60 bg-card p-5 shadow-card">
@@ -155,7 +156,7 @@ function OrderRow({ order }: { order: Order }) {
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <div className="min-w-[180px]">
           <Label className="text-xs">Status</Label>
-          <Select value={order.status} onValueChange={(v) => updateOrderStatus(order.id, v as OrderStatus, v === "agendado" ? scheduled || undefined : undefined)}>
+          <Select value={order.status} onValueChange={(v) => updateOrderStatus(order.id, v as OrderStatus, v === "agendado" ? scheduled || undefined : undefined, adminMessage.trim() || undefined)}>
             <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
             <SelectContent>
               {(Object.keys(STATUS_LABEL) as OrderStatus[]).map((s) => (
@@ -167,16 +168,22 @@ function OrderRow({ order }: { order: Order }) {
         {order.status === "agendado" && (
           <div>
             <Label className="text-xs">Agendado para</Label>
-            <Input type="datetime-local" value={scheduled ? scheduled.slice(0, 16) : ""} onChange={(e) => { const iso = e.target.value ? new Date(e.target.value).toISOString() : ""; setScheduled(iso); updateOrderStatus(order.id, "agendado", iso || undefined); }} className="rounded-xl" />
+            <Input type="datetime-local" value={scheduled ? scheduled.slice(0, 16) : ""} onChange={(e) => { const iso = e.target.value ? new Date(e.target.value).toISOString() : ""; setScheduled(iso); updateOrderStatus(order.id, "agendado", iso || undefined, adminMessage.trim() || undefined); }} className="rounded-xl" />
           </div>
         )}
       </div>
-      {order.feedback && (
-        <div className="mt-4 rounded-2xl bg-secondary/50 p-3 text-sm text-foreground">
-          <p className="font-medium">Feedback do cliente:</p>
-          <p className="whitespace-pre-line">{order.feedback}</p>
+      <div className="mt-4 space-y-3">
+        <div className="space-y-2">
+          <Label className="text-xs">Mensagem destacada para o cliente</Label>
+          <Textarea value={adminMessage} onChange={(e) => { setAdminMessage(e.target.value); updateOrderStatus(order.id, order.status, order.scheduledAt, e.target.value.trim() || undefined); }} className="min-h-[90px] rounded-xl" placeholder="Ex.: Seu pedido está pronto, retirar com Anderson às 19h." />
         </div>
-      )}
+        {order.feedback && (
+          <div className="rounded-2xl bg-secondary/50 p-3 text-sm text-foreground">
+            <p className="font-medium">Feedback do cliente:</p>
+            <p className="whitespace-pre-line">{order.feedback}</p>
+          </div>
+        )}
+      </div>
     </li>
   );
 }

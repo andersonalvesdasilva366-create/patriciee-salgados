@@ -29,6 +29,10 @@ ALTER TABLE products
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS media_type text DEFAULT 'image';
 
+-- Adiciona a mensagem destacada para o cliente nas páginas de acompanhamento do pedido
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS adminmessage text DEFAULT '';
+
 -- Opcional: atualiza cache de esquema do PostgREST (pode ser necessário)
 -- SELECT pg_reload_conf();
 
