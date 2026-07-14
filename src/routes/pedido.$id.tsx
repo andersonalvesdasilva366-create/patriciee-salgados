@@ -133,9 +133,12 @@ function OrderStatusPage() {
           Sua encomenda foi registrada com sucesso.<br />
           Agora é só aguardar que iremos preparar tudo com muito carinho ❤️
         </p>
-        <p className="mt-4 text-xs text-muted-foreground">
-          Pedido #{order.orderCode} · {formatDateTime(order.createdAt)}
-        </p>
+        <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row sm:justify-center">
+          <div className="inline-flex items-center rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary ring-1 ring-primary/30 shadow-sm">
+            Pedido {order.orderCode}
+          </div>
+          <span className="text-xs text-muted-foreground">Registrado em {formatDateTime(order.createdAt)}</span>
+        </div>
       </div>
 
       <div className="mt-8 rounded-3xl border border-border/60 bg-card p-6 shadow-card">
