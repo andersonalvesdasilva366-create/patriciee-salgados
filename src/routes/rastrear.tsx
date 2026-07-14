@@ -20,22 +20,25 @@ function TrackOrder() {
   const [loading, setLoading] = useState(false);
 
   const handleSearch = async () => {
-    if (!whatsapp.trim() || !orderCode.trim()) {
-      toast.error("Digite seu WhatsApp e o código do pedido");
+    if (!whatsapp.trim() && !orderCode.trim()) {
+      toast.error("Digite seu WhatsApp ou o código do pedido");
       return;
     }
 
     setLoading(true);
 
-    // Normalize whatsapp (remove special chars)
-    const normalizedInput = whatsapp.replace(/\D/g, "");
-    const normalizedSearchWhatsapp = normalizedInput.slice(-11); // Get last 11 digits (BR phone format)
+    const normalizedSearchWhatsapp = whatsapp.trim().replace(/\D/g, "").slice(-11);
+    const normalizedSearchOrderCode = orderCode.trim().toUpperCase();
 
-    // Find matching order
-    const order = orders.find((o) => {
-      const normalizedOrderWhatsapp = o.whatsapp.replace(/\D/g, "").slice(-11);
-      return normalizedOrderWhatsapp === normalizedSearchWhatsapp && o.orderCode === orderCode.toUpperCase();
-    });
+    let order;
+    if (normalizedSearchOrderCode) {
+      order = orders.find((o) => o.orderCode.toUpperCase() === normalizedSearchOrderCode && (!whatsapp.trim() || o.whatsapp.replace(/\D/g, "").slice(-11) === normalizedSearchWhatsapp));
+    } else {
+      const matchedOrders = orders
+        .filter((o) => o.whatsapp.replace(/\D/g, "").slice(-11) === normalizedSearchWhatsapp)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      order = matchedOrders[0];
+    }
 
     setLoading(false);
 
@@ -84,7 +87,12 @@ function TrackOrder() {
               disabled={loading}
               maxLength={6}
             />
-            <p className="text-xs text-muted-foreground">Você recebeu este código por WhatsApp após confirmar sua encomenda</p>
+            <p className="text-xs text-muted-foreground">Preencha o código do pedido ou apenas o WhatsApp para buscar seu pedido.</p>
+            {whatsapp.trim() && !orderCode.trim() && (
+              <div className="rounded-2xl border border-amber-200/70 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Buscamos pelo WhatsApp informado. Se houver mais de um pedido, abriremos o mais recente.
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">
