@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ShoppingCart, Menu, X, Flame } from "lucide-react";
+import { ShoppingCart, Menu, X, Flame, Package } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -47,6 +47,18 @@ export function Header() {
               </Link>
             );
           })}
+          <Link
+            to="/rastrear"
+            className={cn(
+              "rounded-full px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2",
+              pathname === "/rastrear"
+                ? "bg-primary text-primary-foreground shadow-card"
+                : "text-foreground/70 hover:bg-secondary hover:text-foreground",
+            )}
+          >
+            <Package className="h-4 w-4" />
+            Acompanhar
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2">
@@ -91,6 +103,21 @@ export function Header() {
                 </Link>
               </li>
             ))}
+            <li>
+              <Link
+                to="/rastrear"
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium",
+                  pathname === "/rastrear"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-secondary",
+                )}
+              >
+                <Package className="h-4 w-4" />
+                Acompanhar Pedido
+              </Link>
+            </li>
           </ul>
         </nav>
       )}

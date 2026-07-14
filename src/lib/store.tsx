@@ -15,6 +15,16 @@ const KEY_HOME_IMAGE = "sdp:homeImageUrl";
 
 const DEFAULT_FEEDBACKS: ProductFeedback[] = [];
 
+// Generate a simple, customer-friendly order code (e.g., "ABC123")
+function generateOrderCode(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
 function sanitizeFeedbacks(value: unknown): ProductFeedback[] {
   if (!Array.isArray(value)) return [];
 
@@ -169,6 +179,7 @@ function normalizeProduct(row: Record<string, unknown>): Product {
 function normalizeOrder(row: Record<string, unknown>): Order {
   return {
     id: String(row.id ?? ""),
+    orderCode: String(row.ordercode ?? row.orderCode ?? ""),
     customerName: String(row.customername ?? ""),
     whatsapp: String(row.whatsapp ?? ""),
     notes: String(row.notes ?? ""),
@@ -544,8 +555,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     createOrder: async ({ customerName, whatsapp, notes }) => {
       if (typeof window === "undefined") return undefined;
       
+      const orderCode = generateOrderCode();
       const order: Order = {
         id: uid(),
+        orderCode,
         customerName,
         whatsapp,
         notes,
@@ -562,6 +575,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .insert([
             {
               id: order.id,
+              ordercode: order.orderCode,
               customername: order.customerName,
               whatsapp: order.whatsapp,
               notes: order.notes,

@@ -99,9 +99,9 @@ function OrderStatusPage() {
   const currentIndex = STEPS.findIndex((s) => s.key === order.status);
   const currentStep = currentIndex >= 0 ? STEPS[currentIndex] : STEPS[0];
   const pixKey = "112879119-60";
-  const pixPayload = `PIX:${pixKey}|pedido:${order.id}|valor:${order.total.toFixed(2)}`;
-  const whatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá! Gostaria de tirar uma dúvida sobre o pedido ${order.id.slice(0, 8).toUpperCase()} 😊`)}`;
-  const adminWhatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá, Anderson! Vim pelo site e gostaria de falar sobre meu pedido ${order.id.slice(0, 8).toUpperCase()} ou tirar mais informações sobre os salgados da Paty.`)}`;
+  const pixPayload = `PIX:${pixKey}|pedido:${order.orderCode}|valor:${order.total.toFixed(2)}`;
+  const whatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá! Gostaria de tirar uma dúvida sobre o pedido ${order.orderCode} 😊`)}`;
+  const adminWhatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá, Anderson! Vim pelo site e gostaria de falar sobre meu pedido ${order.orderCode} ou tirar mais informações sobre os salgados da Paty.`)}`;
   const shouldShowAdminMessage = Boolean(order.adminMessage && ["agendado", "enviado"].includes(order.status));
   const statusMessage = order.status === "enviado"
     ? "Seu pedido já foi entregue. Conta pra gente como foi a experiência?"
@@ -147,7 +147,7 @@ function OrderStatusPage() {
           Agora é só aguardar que iremos preparar tudo com muito carinho ❤️
         </p>
         <p className="mt-4 text-xs text-muted-foreground">
-          Pedido #{order.id.slice(0, 8).toUpperCase()} · {formatDateTime(order.createdAt)}
+          Pedido #{order.orderCode} · {formatDateTime(order.createdAt)}
         </p>
       </div>
 

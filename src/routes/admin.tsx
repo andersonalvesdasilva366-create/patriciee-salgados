@@ -136,7 +136,7 @@ function OrderRow({ order }: { order: Order }) {
             <span className="font-semibold">{order.customerName}</span>
             <Badge className={STATUS_VARIANT[order.status]}>{STATUS_LABEL[order.status]}</Badge>
           </div>
-          <p className="text-sm text-muted-foreground">{order.whatsapp} · {formatDateTime(order.createdAt)} · #{order.id.slice(0, 6).toUpperCase()}</p>
+          <p className="text-sm text-muted-foreground">{order.whatsapp} · {formatDateTime(order.createdAt)} · #{order.orderCode}</p>
         </div>
         <span className="text-lg font-bold text-primary">{brl(order.total)}</span>
       </div>

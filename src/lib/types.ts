@@ -69,6 +69,7 @@ export type OrderStatus =
 
 export type Order = {
   id: string;
+  orderCode: string; // Simplified order code for customer tracking (e.g., "ABC123")
   customerName: string;
   whatsapp: string;
   notes: string;
