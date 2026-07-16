@@ -439,6 +439,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           stock: p.stock,
           orderBalance: p.orderBalance,
           partner: p.partner,
+          partnerUrl: p.partnerUrl,
           promotion: p.promotion,
         });
 
@@ -451,6 +452,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           stock: p.stock,
           orderBalance: p.orderBalance,
           partner: p.partner,
+          partnerUrl: p.partnerUrl,
           promotion: p.promotion,
           offerLabel: p.offerLabel,
           highlightDescription: p.highlightDescription,
@@ -483,6 +485,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...(patch.stock !== undefined && { stock: patch.stock }),
             ...(patch.orderBalance !== undefined && { orderBalance: patch.orderBalance }),
             ...(patch.partner !== undefined && { partner: patch.partner }),
+            ...(patch.partnerUrl !== undefined && { partnerUrl: patch.partnerUrl }),
             ...(patch.promotion !== undefined && { promotion: patch.promotion }),
             ...(patch.mediaUrl !== undefined && { mediaUrl: patch.mediaUrl }),
             ...(patch.mediaType !== undefined && { mediaType: patch.mediaType }),
