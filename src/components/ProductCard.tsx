@@ -192,6 +192,19 @@ export function ProductCard({ product }: { product: Product }) {
                 Produto parceiro
               </span>
             )}
+            {product.partner && product.partnerUrl?.trim() && (
+              <a
+                href={product.partnerUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="w-full"
+              >
+                <Button type="button" variant="secondary" className="w-full rounded-full">
+                  Visitar parceiro
+                </Button>
+              </a>
+            )}
             <div className="flex gap-2">
               <Button
                 disabled={!canAdd}

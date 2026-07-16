@@ -9,6 +9,7 @@ export type Product = {
   stock: number;
   orderBalance?: number; // Saldo disponível para encomenda
   partner?: boolean;
+  partnerUrl?: string;
   promotion?: boolean;
   offerLabel?: string;
   highlightDescription?: string;

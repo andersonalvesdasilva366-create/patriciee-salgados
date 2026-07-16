@@ -142,6 +142,12 @@ function normalizeProduct(row: Record<string, unknown>): Product {
         (row.partner as number | undefined) ??
         false,
     ),
+    partnerUrl: String(
+      (row.partnerUrl as string | undefined) ??
+        (row.partnerurl as string | undefined) ??
+        (row.partner_url as string | undefined) ??
+        "",
+    ),
     promotion: Boolean(
       (row.promotion as boolean | undefined) ??
         (row.Promotion as boolean | undefined) ??
@@ -194,7 +200,7 @@ function normalizeOrder(row: Record<string, unknown>): Order {
 }
 
 function buildProductPayload(
-  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean; mediaUrl?: string | null; mediaType?: "image" | "video" },
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; partnerUrl?: string; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean; mediaUrl?: string | null; mediaType?: "image" | "video" },
   variant: "camel" | "lower" | "snake",
 ) {
   const imageKey = variant === "camel" ? "imageUrl" : variant === "lower" ? "imageurl" : "image_url";
@@ -202,6 +208,7 @@ function buildProductPayload(
   const mediaUrlKey = variant === "camel" ? "mediaUrl" : variant === "lower" ? "mediaurl" : "media_url";
   const mediaTypeKey = variant === "camel" ? "mediaType" : variant === "lower" ? "mediatype" : "media_type";
   const partnerKey = "partner";
+  const partnerUrlKey = variant === "camel" ? "partnerUrl" : variant === "lower" ? "partnerurl" : "partner_url";
   const promotionKey = "promotion";
 
   return {
@@ -212,6 +219,7 @@ function buildProductPayload(
     ...(values.stock !== undefined && { stock: values.stock }),
     ...(values.orderBalance !== undefined && { [orderBalanceKey]: values.orderBalance }),
     ...(values.partner !== undefined && { [partnerKey]: values.partner }),
+    ...(values.partnerUrl !== undefined && { [partnerUrlKey]: values.partnerUrl }),
     ...(values.promotion !== undefined && { [promotionKey]: values.promotion }),
     ...(values.mediaUrl !== undefined && { [mediaUrlKey]: values.mediaUrl }),
     ...(values.mediaType !== undefined && { [mediaTypeKey]: values.mediaType }),
@@ -220,7 +228,7 @@ function buildProductPayload(
 
 async function writeProductWithFallback(
   operation: "insert" | "update",
-  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean; mediaUrl?: string | null; mediaType?: "image" | "video" },
+  values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; partnerUrl?: string; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean; mediaUrl?: string | null; mediaType?: "image" | "video" },
   id?: string,
 ) {
   const payloads = [

@@ -294,6 +294,7 @@ function ProductDialog({ product, onSubmit }: { product: Product | null; onSubmi
     stock: product?.stock ?? 0,
     orderBalance: product?.orderBalance ?? 0,
     partner: product?.partner ?? false,
+    partnerUrl: product?.partnerUrl ?? "",
     promotion: product?.promotion ?? false,
     offerLabel: product?.offerLabel ?? "",
     highlightDescription: product?.highlightDescription ?? "",
@@ -313,6 +314,7 @@ function ProductDialog({ product, onSubmit }: { product: Product | null; onSubmi
       stock: product?.stock ?? 0,
       orderBalance: product?.orderBalance ?? 0,
       partner: product?.partner ?? false,
+      partnerUrl: product?.partnerUrl ?? "",
       promotion: product?.promotion ?? false,
       offerLabel: product?.offerLabel ?? "",
       highlightDescription: product?.highlightDescription ?? "",
@@ -354,6 +356,7 @@ function ProductDialog({ product, onSubmit }: { product: Product | null; onSubmi
         </div>
         <div className="space-y-2"><Label>Saldo de encomenda</Label><Input type="number" min="0" step="1" value={form.orderBalance ?? 0} onChange={(e) => setForm({ ...form, orderBalance: Number(e.target.value) })} className="rounded-xl" /></div>
         <div className="space-y-2"><Label>Oferta / Destaque</Label><Input value={form.offerLabel ?? ""} onChange={(e) => setForm({ ...form, offerLabel: e.target.value })} className="rounded-xl" placeholder="Ex.: Oferta do dia" /></div>
+        <div className="space-y-2"><Label>Site do parceiro</Label><Input value={form.partnerUrl ?? ""} onChange={(e) => setForm({ ...form, partnerUrl: e.target.value })} className="rounded-xl" placeholder="https://exemplo.com" /><p className="text-xs text-muted-foreground">Se preenchido, um botão de acesso aparece na página de parceiros.</p></div>
         <div className="space-y-2"><Label>Descrição destacada</Label><Textarea value={form.highlightDescription ?? ""} onChange={(e) => setForm({ ...form, highlightDescription: e.target.value })} className="rounded-xl" placeholder="Texto que aparecerá destacado no produto" /></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-secondary/50 p-4"><Switch checked={form.promotion} onCheckedChange={(checked) => setForm({ ...form, promotion: checked })} /><div><p className="text-sm font-semibold">Exibir em Promoções</p><p className="text-xs text-muted-foreground">Mostra este produto na aba de promoções.</p></div></div>
