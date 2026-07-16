@@ -83,10 +83,9 @@ function OrderStatusPage() {
 
   const currentIndex = STEPS.findIndex((s) => s.key === order.status);
   const currentStep = currentIndex >= 0 ? STEPS[currentIndex] : STEPS[0];
-  const pixKey = "368b692a15-5505-4127-9909-b4acd2b754b4";
   // Static PIX QR Code (Pix Copia e Cola) - Customer enters the amount in their bank app
   const pixPayload = "00020101021126580014br.gov.bcb.pix01368b692a15-5505-4127-9909-b4acd2b754b45204000053039865802BR5917ANDERSON DA SILVA6008CURITIBA62070503***6304EF82";
-  
+
   const whatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá! Gostaria de tirar uma dúvida sobre o pedido ${order.orderCode} 😊`)}`;
   const adminWhatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá, Anderson! Vim pelo site e gostaria de falar sobre meu pedido ${order.orderCode} ou tirar mais informações sobre os salgados da Paty.`)}`;
   const shouldShowAdminMessage = Boolean(order.adminMessage && ["agendado", "enviado"].includes(order.status));
@@ -113,12 +112,12 @@ function OrderStatusPage() {
 
   const copyPixKey = async () => {
     try {
-      await navigator.clipboard.writeText(pixKey);
+      await navigator.clipboard.writeText(pixPayload);
       setCopiedPixKey(true);
-      toast.success("Chave Pix copiada!");
+      toast.success("Código Pix copiado!");
       window.setTimeout(() => setCopiedPixKey(false), 2000);
     } catch {
-      toast.error("Não foi possível copiar a chave Pix");
+      toast.error("Não foi possível copiar o código Pix");
     }
   };
 
@@ -168,14 +167,18 @@ function OrderStatusPage() {
             </div>
             <div className="flex flex-col justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Chave Pix (alternativa)</p>
-                <div className="mt-2 flex items-center gap-2 rounded-2xl border border-dashed border-border bg-background p-3 font-mono text-sm">
-                  <span className="break-all">{pixKey}</span>
-                  <Button type="button" size="icon" variant="ghost" className="shrink-0 rounded-full" onClick={copyPixKey}>
+                <p className="text-sm font-semibold text-foreground">Pix copia e cola</p>
+                <div className="mt-2 flex items-start gap-2 rounded-2xl border border-primary/30 bg-primary/5 p-3 shadow-sm">
+                  <Textarea
+                    readOnly
+                    value={pixPayload}
+                    className="min-h-[180px] flex-1 resize-y border-0 bg-transparent p-0 font-mono text-[11px] leading-5 text-foreground shadow-none focus-visible:ring-0 sm:text-sm"
+                  />
+                  <Button type="button" size="icon" className="h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:bg-primary/90" onClick={copyPixKey}>
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground">Você também pode copiar a chave Pix acima e pagar digitando na seu banco. Não esqueça de inserir o valor de <strong>{brl(order.total)}</strong>.</p>
+                <p className="mt-3 text-sm text-muted-foreground">Você também pode copiar o código Pix acima e pagar digitando no seu banco. Não esqueça de inserir o valor de <strong>{brl(order.total)}</strong>.</p>
               </div>
               <Button className="mt-4 rounded-full" onClick={() => { setPaymentConfirmed(true); toast.success("Pagamento confirmado. Obrigado pela compra!"); }}>
                 Já fiz o pagamento
