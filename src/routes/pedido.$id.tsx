@@ -168,13 +168,13 @@ function OrderStatusPage() {
             <div className="flex flex-col justify-between">
               <div>
                 <p className="text-sm font-semibold text-foreground">Pix copia e cola</p>
-                <div className="mt-2 flex items-start gap-2 rounded-2xl border border-primary/30 bg-primary/5 p-3 shadow-sm">
+                <div className="mt-2 flex flex-col gap-2 rounded-2xl border border-primary/30 bg-primary/5 p-3 shadow-sm sm:flex-row sm:items-start">
                   <Textarea
                     readOnly
                     value={pixPayload}
-                    className="min-h-[180px] flex-1 resize-y border-0 bg-transparent p-0 font-mono text-[11px] leading-5 text-foreground shadow-none focus-visible:ring-0 sm:text-sm"
+                    className="min-h-[220px] w-full resize-none border border-dashed border-primary/20 bg-background/80 p-3 font-mono text-[10px] leading-5 text-foreground shadow-inner focus-visible:ring-0 sm:text-sm"
                   />
-                  <Button type="button" size="icon" className="h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:bg-primary/90" onClick={copyPixKey}>
+                  <Button type="button" className="h-11 w-full shrink-0 rounded-full bg-primary px-4 text-primary-foreground shadow-sm hover:bg-primary/90 sm:w-11 sm:px-0" onClick={copyPixKey}>
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
