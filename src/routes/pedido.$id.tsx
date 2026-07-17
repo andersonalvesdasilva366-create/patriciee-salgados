@@ -60,13 +60,19 @@ function OrderStatusPage() {
     };
 
     void syncOrder();
-    const timer = window.setInterval(() => {
-      void syncOrder();
-    }, 10000);
+    if (typeof window !== "undefined") {
+      const timer = window.setInterval(() => {
+        void syncOrder();
+      }, 10000);
+
+      return () => {
+        cancelled = true;
+        window.clearInterval(timer);
+      };
+    }
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
     };
   }, [order?.id]);
 
@@ -112,10 +118,14 @@ function OrderStatusPage() {
 
   const copyPixKey = async () => {
     try {
-      await navigator.clipboard.writeText(pixPayload);
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(pixPayload);
+      }
       setCopiedPixKey(true);
       toast.success("Código Pix copiado!");
-      window.setTimeout(() => setCopiedPixKey(false), 2000);
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => setCopiedPixKey(false), 2000);
+      }
     } catch {
       toast.error("Não foi possível copiar o código Pix");
     }
