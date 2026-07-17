@@ -819,6 +819,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const response = await fetch("/api/admin/login", {
           method: "POST",
           headers: { "content-type": "application/json" },
+          credentials: "include",
+          cache: "no-store",
           body: JSON.stringify({ password }),
         });
         const ok = response.ok;
@@ -832,7 +834,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     logoutAdmin: async () => {
       if (typeof window !== "undefined") {
         try {
-          await fetch("/api/admin/logout", { method: "POST" });
+          await fetch("/api/admin/logout", { method: "POST", credentials: "include", cache: "no-store" });
         } catch {
           // ignore logout errors and still clear local state
         }

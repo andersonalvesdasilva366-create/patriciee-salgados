@@ -10,8 +10,8 @@ type ServerEntry = {
 };
 
 const ADMIN_COOKIE_NAME = "sdp_admin_session";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? (process.env.NODE_ENV !== "production" ? "dev-admin-password" : undefined);
-const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET ?? (process.env.NODE_ENV !== "production" ? "dev-admin-session-secret" : undefined);
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD ?? (process.env.NODE_ENV !== "production" ? "dev-admin-password" : "")).trim();
+const ADMIN_SESSION_SECRET = (process.env.ADMIN_SESSION_SECRET ?? ADMIN_PASSWORD ?? "").trim();
 const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
@@ -61,7 +61,8 @@ function getCookieValue(request: Request, name: string): string | null {
 
 function createSessionToken(password: string) {
   const issuedAt = Date.now().toString();
-  const signature = createHmac("sha256", ADMIN_SESSION_SECRET)
+  const signingKey = ADMIN_SESSION_SECRET || ADMIN_PASSWORD || "dev-admin-session-secret";
+  const signature = createHmac("sha256", signingKey)
     .update(`${issuedAt}:${password}`)
     .digest("hex");
   return `${issuedAt}.${signature}`;
@@ -74,7 +75,8 @@ function verifySessionToken(token: string) {
   if (Number.isNaN(issuedTime)) return false;
   if (Date.now() - issuedTime > ADMIN_SESSION_TTL_MS) return false;
 
-  const expectedSignature = createHmac("sha256", ADMIN_SESSION_SECRET)
+  const signingKey = ADMIN_SESSION_SECRET || ADMIN_PASSWORD || "dev-admin-session-secret";
+  const expectedSignature = createHmac("sha256", signingKey)
     .update(`${issuedAt}:${ADMIN_PASSWORD}`)
     .digest("hex");
 
@@ -113,6 +115,13 @@ async function handleAdminLogin(request: Request) {
   }
 
   const password = typeof payload?.password === "string" ? payload.password : "";
+  if (!ADMIN_PASSWORD) {
+    return new Response(JSON.stringify({ ok: false, message: "Admin não configurado" }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   if (password !== ADMIN_PASSWORD) {
     return new Response(JSON.stringify({ ok: false, message: "Senha incorreta" }), {
       status: 401,

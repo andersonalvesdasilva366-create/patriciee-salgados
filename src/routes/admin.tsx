@@ -45,7 +45,7 @@ function AdminPage() {
 
     const checkSession = async () => {
       try {
-        const response = await fetch("/api/admin/me", { method: "GET" });
+        const response = await fetch("/api/admin/me", { method: "GET", credentials: "include", cache: "no-store" });
         if (active) setIsAuthenticated(response.ok);
       } catch {
         if (active) setIsAuthenticated(false);
