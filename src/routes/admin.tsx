@@ -35,22 +35,60 @@ const STATUS_VARIANT: Record<OrderStatus, string> = {
 };
 
 function AdminPage() {
-  const { isAdmin, loginAdmin, logoutAdmin } = useStore();
+  const { loginAdmin, logoutAdmin } = useStore();
   const [pwd, setPwd] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
-  if (!isAdmin) {
+  useEffect(() => {
+    let active = true;
+
+    const checkSession = async () => {
+      try {
+        const response = await fetch("/api/admin/me", { method: "GET" });
+        if (active) setIsAuthenticated(response.ok);
+      } catch {
+        if (active) setIsAuthenticated(false);
+      } finally {
+        if (active) setCheckingAuth(false);
+      }
+    };
+
+    void checkSession();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const ok = await loginAdmin(pwd);
+    setIsAuthenticated(ok);
+    if (!ok) toast.error("Senha incorreta");
+  };
+
+  const handleLogout = async () => {
+    await logoutAdmin();
+    setIsAuthenticated(false);
+  };
+
+  if (checkingAuth) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-20">
+        <div className="rounded-3xl border border-border/60 bg-card p-8 shadow-warm text-center">
+          <p className="text-sm text-muted-foreground">Validando acesso ao painel…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     return (
       <div className="mx-auto max-w-md px-4 py-20">
         <div className="rounded-3xl border border-border/60 bg-card p-8 shadow-warm">
           <h1 className="font-display text-2xl font-bold">Área Administrativa</h1>
           <p className="mt-1 text-sm text-muted-foreground">Entre para gerenciar produtos, pedidos e finanças.</p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!loginAdmin(pwd)) toast.error("Senha incorreta");
-            }}
-            className="mt-6 space-y-4"
-          >
+          <form onSubmit={handleLogin} className="mt-6 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="pwd">Senha</Label>
               <Input id="pwd" type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} className="rounded-xl" placeholder="Digite a senha" />
@@ -69,7 +107,7 @@ function AdminPage() {
           <h1 className="font-display text-3xl font-bold">Painel Administrativo</h1>
           <p className="text-sm text-muted-foreground">Gerencie produtos, pedidos, comentários e finanças.</p>
         </div>
-        <Button variant="outline" className="rounded-full" onClick={logoutAdmin}>
+        <Button variant="outline" className="rounded-full" onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" /> Sair
         </Button>
       </div>

@@ -5,7 +5,6 @@ import { sendOrderToTelegram } from "./telegram";
 import { supabase } from "./supabase";
 
 const KEY_CART = "sdp:cart";
-const KEY_ADMIN = "sdp:admin";
 const KEY_FEEDBACKS = "sdp:feedbacks";
 const KEY_EXPENSES = "sdp:expenses";
 const KEY_REVENUES = "sdp:revenues";
@@ -95,8 +94,8 @@ type Ctx = {
   submitOrderFeedback: (id: string, feedback: string) => Promise<void>;
 
   // admin
-  loginAdmin: (password: string) => boolean;
-  logoutAdmin: () => void;
+  loginAdmin: (password: string) => Promise<boolean>;
+  logoutAdmin: () => Promise<void>;
   submitProductFeedback: (productId: string, name: string, comment: string) => Promise<void>;
   approveFeedback: (id: string, approved: boolean) => Promise<void>;
   addExpense: (expense: Omit<ExpenseEntry, "id">) => Promise<void>;
@@ -298,7 +297,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const localVideoUrl = load<string>(KEY_HOME_VIDEO, "");
     const localImageUrl = load<string>(KEY_HOME_IMAGE, "");
     setCart(load<CartItem[]>(KEY_CART, []));
-    setIsAdmin(load<boolean>(KEY_ADMIN, false));
+    setIsAdmin(false);
     setFeedbacks(sanitizeFeedbacks(load<unknown>(KEY_FEEDBACKS, DEFAULT_FEEDBACKS)));
     setExpenses(load<ExpenseEntry[]>(KEY_EXPENSES, []));
     setRevenues(load<RevenueEntry[]>(KEY_REVENUES, []));
@@ -375,11 +374,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (hydrated) save(KEY_CART, cart);
   }, [cart, hydrated]);
-
-  // Save admin to localStorage
-  useEffect(() => {
-    if (hydrated) save(KEY_ADMIN, isAdmin);
-  }, [isAdmin, hydrated]);
 
   useEffect(() => {
     if (hydrated) save(KEY_FEEDBACKS, feedbacks);
@@ -818,12 +812,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
     },
 
-    loginAdmin: (password) => {
-      const ok = password === "40023265a";
-      if (ok) setIsAdmin(true);
-      return ok;
+    loginAdmin: async (password) => {
+      if (typeof window === "undefined") return false;
+
+      try {
+        const response = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ password }),
+        });
+        const ok = response.ok;
+        setIsAdmin(ok);
+        return ok;
+      } catch {
+        setIsAdmin(false);
+        return false;
+      }
     },
-    logoutAdmin: () => setIsAdmin(false),
+    logoutAdmin: async () => {
+      if (typeof window !== "undefined") {
+        try {
+          await fetch("/api/admin/logout", { method: "POST" });
+        } catch {
+          // ignore logout errors and still clear local state
+        }
+      }
+      setIsAdmin(false);
+    },
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
