@@ -34,6 +34,26 @@ const STATUS_VARIANT: Record<OrderStatus, string> = {
   enviado: "bg-success/20 text-success",
 };
 
+type AdminTab = "orders" | "products" | "home" | "feedbacks" | "finance";
+
+function obfuscateTabValue(tab: AdminTab) {
+  const shifted = Array.from(tab).map((char) => String.fromCharCode(char.charCodeAt(0) + 13)).join("");
+  return Array.from(shifted).map((char) => char.charCodeAt(0).toString(16).padStart(2, "0")).join("");
+}
+
+function deobfuscateTabValue(value: string): AdminTab | null {
+  if (!value) return null;
+
+  const pairs = value.match(/.{1,2}/g) ?? [];
+  const shifted = pairs.map((pair) => {
+    const code = Number.parseInt(pair, 16);
+    return Number.isNaN(code) ? "" : String.fromCharCode(code - 13);
+  }).join("");
+
+  const match = ["orders", "products", "home", "feedbacks", "finance"].find((tab) => tab === shifted);
+  return match as AdminTab | null;
+}
+
 function AdminPage() {
   const { loginAdmin, logoutAdmin } = useStore();
   const [pwd, setPwd] = useState("");
@@ -112,20 +132,20 @@ function AdminPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="orders">
+      <Tabs defaultValue="orders" value={undefined}>
         <TabsList className="rounded-full">
-          <TabsTrigger value="orders" className="rounded-full">Pedidos</TabsTrigger>
-          <TabsTrigger value="products" className="rounded-full">Produtos</TabsTrigger>
-          <TabsTrigger value="home" className="rounded-full">Home</TabsTrigger>
-          <TabsTrigger value="feedbacks" className="rounded-full">Comentários</TabsTrigger>
-          <TabsTrigger value="finance" className="rounded-full">Vendas & Gastos</TabsTrigger>
+          <TabsTrigger value={obfuscateTabValue("orders")} className="rounded-full">Pedidos</TabsTrigger>
+          <TabsTrigger value={obfuscateTabValue("products")} className="rounded-full">Produtos</TabsTrigger>
+          <TabsTrigger value={obfuscateTabValue("home")} className="rounded-full">Home</TabsTrigger>
+          <TabsTrigger value={obfuscateTabValue("feedbacks")} className="rounded-full">Comentários</TabsTrigger>
+          <TabsTrigger value={obfuscateTabValue("finance")} className="rounded-full">Vendas & Gastos</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="orders" className="mt-6"><OrdersPanel /></TabsContent>
-        <TabsContent value="products" className="mt-6"><ProductsPanel /></TabsContent>
-        <TabsContent value="home" className="mt-6"><HomeSettingsPanel /></TabsContent>
-        <TabsContent value="feedbacks" className="mt-6"><FeedbacksPanel /></TabsContent>
-        <TabsContent value="finance" className="mt-6"><FinancePanel /></TabsContent>
+        <TabsContent value={obfuscateTabValue("orders")} className="mt-6"><OrdersPanel /></TabsContent>
+        <TabsContent value={obfuscateTabValue("products")} className="mt-6"><ProductsPanel /></TabsContent>
+        <TabsContent value={obfuscateTabValue("home")} className="mt-6"><HomeSettingsPanel /></TabsContent>
+        <TabsContent value={obfuscateTabValue("feedbacks")} className="mt-6"><FeedbacksPanel /></TabsContent>
+        <TabsContent value={obfuscateTabValue("finance")} className="mt-6"><FinancePanel /></TabsContent>
       </Tabs>
     </div>
   );
