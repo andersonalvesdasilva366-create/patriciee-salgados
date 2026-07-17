@@ -1,7 +1,5 @@
 import "./lib/error-capture";
 
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 import { createClient } from "@supabase/supabase-js";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
@@ -18,13 +16,19 @@ const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
+const DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_JsYyYlBFR2tgZru2s25J7w_z8EoOIEP";
 const supabaseUrl = process.env.SUPABASE_URL ?? "https://swzfjksxrsupkekwpyor.supabase.co";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE ?? process.env.SUPABASE_ANON_KEY ?? "";
-const supabaseAdmin = supabaseServiceKey
+const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? DEFAULT_SUPABASE_ANON_KEY).trim();
+const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE ?? "").trim();
+const useServiceRoleClient = Boolean(supabaseServiceKey && !supabaseServiceKey.includes("publishable"));
+const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey || DEFAULT_SUPABASE_ANON_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+const supabaseAdmin = useServiceRoleClient
   ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
-  : null;
+  : supabaseAnon;
 
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
@@ -69,16 +73,34 @@ function getCookieValue(request: Request, name: string): string | null {
   return decodeURIComponent(entry.slice(name.length + 1));
 }
 
-function createSessionToken(password: string) {
+async function createSignatureHex(secret: string, value: string): Promise<string> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) throw new Error("Web Crypto is not available in this runtime");
+
+  const encoder = new TextEncoder();
+  const key = await subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await subtle.sign("HMAC", key, encoder.encode(value));
+
+  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function constantTimeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  let result = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    result |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return result === 0;
+}
+
+async function createSessionToken(password: string) {
   const issuedAt = Date.now().toString();
   const signingKey = ADMIN_SESSION_SECRET || ADMIN_PASSWORD || "dev-admin-session-secret";
-  const signature = createHmac("sha256", signingKey)
-    .update(`${issuedAt}:${password}`)
-    .digest("hex");
+  const signature = await createSignatureHex(signingKey, `${issuedAt}:${password}`);
   return `${issuedAt}.${signature}`;
 }
 
-function verifySessionToken(token: string) {
+async function verifySessionToken(token: string) {
   const [issuedAt, signature] = token.split(".");
   if (!issuedAt || !signature) return false;
   const issuedTime = Number(issuedAt);
@@ -86,19 +108,13 @@ function verifySessionToken(token: string) {
   if (Date.now() - issuedTime > ADMIN_SESSION_TTL_MS) return false;
 
   const signingKey = ADMIN_SESSION_SECRET || ADMIN_PASSWORD || "dev-admin-session-secret";
-  const expectedSignature = createHmac("sha256", signingKey)
-    .update(`${issuedAt}:${ADMIN_PASSWORD}`)
-    .digest("hex");
-
-  const expectedBuffer = Buffer.from(expectedSignature);
-  const actualBuffer = Buffer.from(signature);
-  if (expectedBuffer.length !== actualBuffer.length) return false;
-  return timingSafeEqual(expectedBuffer, actualBuffer);
+  const expectedSignature = await createSignatureHex(signingKey, `${issuedAt}:${ADMIN_PASSWORD}`);
+  return constantTimeEqual(expectedSignature, signature);
 }
 
-function hasValidAdminSession(request: Request) {
+async function hasValidAdminSession(request: Request) {
   const token = getCookieValue(request, ADMIN_COOKIE_NAME);
-  return Boolean(token && verifySessionToken(token));
+  return Boolean(token && (await verifySessionToken(token)));
 }
 
 function buildCookieHeader(value: string | null, maxAgeSeconds?: number) {
@@ -117,6 +133,16 @@ function jsonResponse(payload: unknown, init?: ResponseInit) {
       ...(init?.headers ?? {}),
     },
   });
+}
+
+function getSupabaseErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  return typeof error === "string" ? error : "Supabase request failed";
+}
+
+function isRecoverableSupabaseReadError(error: unknown): boolean {
+  const message = getSupabaseErrorMessage(error).toLowerCase();
+  return /invalid api key|permission denied|row level security|jwt|not authenticated|missing|service role/i.test(message);
 }
 
 async function readJsonBody(request: Request) {
@@ -213,7 +239,7 @@ async function handleAdminLogin(request: Request) {
     });
   }
 
-  const token = createSessionToken(password);
+  const token = await createSessionToken(password);
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {
@@ -234,7 +260,7 @@ async function handleAdminLogout() {
 }
 
 async function handleAdminMe(request: Request) {
-  if (hasValidAdminSession(request)) {
+  if (await hasValidAdminSession(request)) {
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -257,7 +283,13 @@ async function handleProducts(request: Request, url: URL) {
 
   if (request.method === "GET") {
     const { data, error } = await supabaseAdmin.from("products").select("*").order("created_at", { ascending: false });
-    if (error) return jsonResponse({ ok: false, error: error.message }, { status: 500 });
+    if (error) {
+      if (isRecoverableSupabaseReadError(error)) {
+        console.warn("Falling back to empty products payload because Supabase read failed", getSupabaseErrorMessage(error));
+        return jsonResponse([]);
+      }
+      return jsonResponse({ ok: false, error: getSupabaseErrorMessage(error) }, { status: 500 });
+    }
     return jsonResponse(data ?? []);
   }
 
@@ -301,7 +333,13 @@ async function handleOrders(request: Request, url: URL) {
   if (request.method === "GET") {
     if (orderId) {
       const { data, error } = await supabaseAdmin.from("orders").select("*").eq("id", orderId).maybeSingle();
-      if (error) return jsonResponse({ ok: false, error: error.message }, { status: 500 });
+      if (error) {
+        if (isRecoverableSupabaseReadError(error)) {
+          console.warn("Falling back to empty order payload because Supabase read failed", getSupabaseErrorMessage(error));
+          return jsonResponse(null);
+        }
+        return jsonResponse({ ok: false, error: getSupabaseErrorMessage(error) }, { status: 500 });
+      }
       return jsonResponse(data ?? null);
     }
 
@@ -310,7 +348,13 @@ async function handleOrders(request: Request, url: URL) {
     }
 
     const { data, error } = await supabaseAdmin.from("orders").select("*").order("createdat", { ascending: false });
-    if (error) return jsonResponse({ ok: false, error: error.message }, { status: 500 });
+    if (error) {
+      if (isRecoverableSupabaseReadError(error)) {
+        console.warn("Falling back to empty orders payload because Supabase read failed", getSupabaseErrorMessage(error));
+        return jsonResponse([]);
+      }
+      return jsonResponse({ ok: false, error: getSupabaseErrorMessage(error) }, { status: 500 });
+    }
     return jsonResponse(data ?? []);
   }
 
@@ -356,7 +400,7 @@ async function handleOrders(request: Request, url: URL) {
 
   if (request.method === "PATCH" && orderId) {
     const body = await readJsonBody(request);
-    const isAdminUpdate = hasValidAdminSession(request);
+    const isAdminUpdate = await hasValidAdminSession(request);
     const updatePayload: Record<string, unknown> = {};
 
     if (body?.status !== undefined) updatePayload.status = body.status;
@@ -390,7 +434,13 @@ async function handleRevenueEntries(request: Request, url: URL) {
 
   if (request.method === "GET") {
     const { data, error } = await supabaseAdmin.from("revenue_entries").select("*").order("received_at", { ascending: false });
-    if (error) return jsonResponse({ ok: false, error: error.message }, { status: 500 });
+    if (error) {
+      if (isRecoverableSupabaseReadError(error)) {
+        console.warn("Falling back to empty revenue payload because Supabase read failed", getSupabaseErrorMessage(error));
+        return jsonResponse([]);
+      }
+      return jsonResponse({ ok: false, error: getSupabaseErrorMessage(error) }, { status: 500 });
+    }
     return jsonResponse(data ?? []);
   }
 
@@ -430,7 +480,13 @@ async function handleSiteSettings(request: Request, url: URL) {
     let query = supabaseAdmin.from("site_settings").select("key, value");
     if (requestedKeys.length) query = query.in("key", requestedKeys);
     const { data, error } = await query;
-    if (error) return jsonResponse({ ok: false, error: error.message }, { status: 500 });
+    if (error) {
+      if (isRecoverableSupabaseReadError(error)) {
+        console.warn("Falling back to empty site settings payload because Supabase read failed", getSupabaseErrorMessage(error));
+        return jsonResponse([]);
+      }
+      return jsonResponse({ ok: false, error: getSupabaseErrorMessage(error) }, { status: 500 });
+    }
     return jsonResponse(data ?? []);
   }
 
