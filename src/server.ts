@@ -179,12 +179,6 @@ export default {
       return handleAdminMe(request);
     }
 
-    if (url.pathname === "/admin" || url.pathname === "/admin/") {
-      if (!hasValidAdminSession(request)) {
-        return Response.redirect(new URL("/", request.url), 302);
-      }
-    }
-
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
