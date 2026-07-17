@@ -451,6 +451,7 @@ async function handleSiteSettings(request: Request, url: URL) {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     const url = new URL(request.url);
+    const segments = getPathSegments(url);
 
     if (url.pathname === "/api/admin/login") {
       return handleAdminLogin(request);
