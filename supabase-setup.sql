@@ -36,30 +36,39 @@ CREATE TABLE IF NOT EXISTS orders (
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
--- 4. PRODUCTS: EVERYONE CAN READ
-CREATE POLICY "Allow public read" ON products
-  FOR SELECT USING (true);
+-- 4. DROP EXISTING OPEN POLICIES (if any)
+DROP POLICY IF EXISTS "Allow public read" ON products;
+DROP POLICY IF EXISTS "Allow all for now" ON products;
+DROP POLICY IF EXISTS "Allow insert orders" ON orders;
+DROP POLICY IF EXISTS "Allow public read" ON orders;
+DROP POLICY IF EXISTS "Allow all for now" ON orders;
+DROP POLICY IF EXISTS "Allow delete for now" ON orders;
 
--- 5. PRODUCTS: ONLY ADMIN CAN INSERT/UPDATE/DELETE
--- (Will add auth check via app/middleware)
-CREATE POLICY "Allow all for now" ON products
-  FOR ALL USING (true);
+-- 5. PRODUCTS: NO PUBLIC ACCESS BY DEFAULT
+CREATE POLICY "Products: deny anonymous read" ON products
+  FOR SELECT USING (auth.uid() IS NOT NULL);
 
--- 6. ORDERS: EVERYONE CAN READ
-CREATE POLICY "Allow public read" ON orders
-  FOR SELECT USING (true);
+CREATE POLICY "Products: deny anonymous write" ON products
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
--- 7. ORDERS: EVERYONE CAN INSERT
-CREATE POLICY "Allow insert orders" ON orders
-  FOR INSERT WITH CHECK (true);
+CREATE POLICY "Products: deny anonymous update" ON products
+  FOR UPDATE USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
 
--- 8. ORDERS: ONLY ADMIN CAN UPDATE/DELETE
-CREATE POLICY "Allow all for now" ON orders
-  FOR UPDATE USING (true)
-  WITH CHECK (true);
+CREATE POLICY "Products: deny anonymous delete" ON products
+  FOR DELETE USING (auth.uid() IS NOT NULL);
 
-CREATE POLICY "Allow delete for now" ON orders
-  FOR DELETE USING (true);
+-- 6. ORDERS: NO PUBLIC ACCESS BY DEFAULT
+CREATE POLICY "Orders: deny anonymous read" ON orders
+  FOR SELECT USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Orders: deny anonymous insert" ON orders
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Orders: deny anonymous update" ON orders
+  FOR UPDATE USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Orders: deny anonymous delete" ON orders
+  FOR DELETE USING (auth.uid() IS NOT NULL);
 
 -- 9. CREATE INDEXES FOR PERFORMANCE
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);

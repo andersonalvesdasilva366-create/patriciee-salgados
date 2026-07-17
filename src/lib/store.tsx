@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { CartItem, ExpenseEntry, Order, OrderStatus, Product, ProductFeedback, RevenueEntry } from "./types";
 import { uid } from "./format";
 import { sendOrderToTelegram } from "./telegram";
-import { supabase } from "./supabase";
 
 const KEY_CART = "sdp:cart";
 const KEY_FEEDBACKS = "sdp:feedbacks";
@@ -60,6 +59,23 @@ function load<T>(key: string, fallback: T): T {
 function save<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
   localStorage.setItem(key, JSON.stringify(value));
+}
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T | undefined> {
+  const response = await fetch(path, {
+    credentials: "include",
+    cache: "no-store",
+    ...init,
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(body || `Request failed: ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) return undefined;
+  return (await response.json()) as T;
 }
 
 type Ctx = {
@@ -225,33 +241,27 @@ function buildProductPayload(
   };
 }
 
-async function writeProductWithFallback(
+async function saveProductWithApi(
   operation: "insert" | "update",
   values: Partial<Product> & { name?: string; description?: string; imageUrl?: string | null; price?: number; stock?: number; orderBalance?: number | null; partner?: boolean; partnerUrl?: string; promotion?: boolean; offerLabel?: string; highlightDescription?: string; featured?: boolean; mediaUrl?: string | null; mediaType?: "image" | "video" },
   id?: string,
 ) {
-  const payloads = [
-    buildProductPayload(values, "lower"),
-    buildProductPayload(values, "camel"),
-    buildProductPayload(values, "snake"),
-  ];
+  const payload = buildProductPayload(values, "camel");
+  const path = operation === "insert" ? "/api/products" : `/api/products/${id ?? ""}`;
+  const response = await fetch(path, {
+    method: operation === "insert" ? "POST" : "PATCH",
+    credentials: "include",
+    cache: "no-store",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ product: payload }),
+  });
 
-  let lastError: unknown;
-  for (const payload of payloads) {
-    const baseQuery =
-      operation === "insert"
-        ? supabase.from("products").insert([payload])
-        : supabase.from("products").update(payload).eq("id", id ?? "");
-
-    const { error } = await baseQuery.select();
-    if (!error) return { error: null };
-
-    lastError = error;
-    const message = typeof error.message === "string" ? error.message : "";
-    if (!/column/i.test(message)) break;
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(body || `Failed to save product: ${response.status}`);
   }
 
-  return { error: lastError };
+  return response.json();
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -268,17 +278,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
 
   // Load cart and admin from localStorage
-  const loadRevenueEntriesFromSupabase = async () => {
+  const loadRevenueEntriesFromServer = async () => {
     if (typeof window === "undefined") return;
     try {
-      const { data, error } = await supabase.from("revenue_entries").select("*").order("received_at", { ascending: false });
-      if (error) {
-        const message = typeof error.message === "string" ? error.message : "";
-        if (/does not exist|relation .*revenue_entries|cannot find/i.test(message)) return;
-        console.error("Error loading revenue entries:", error);
-        return;
-      }
-
+      const data = await requestJson<Array<Record<string, unknown>>>('/api/revenue-entries');
       setRevenues((data || []).map((row: Record<string, unknown>) => ({
         id: String(row.id ?? ""),
         description: String(row.description ?? ""),
@@ -307,16 +310,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setHydrated(true);
 
     if (typeof window !== "undefined") {
-      void loadRevenueEntriesFromSupabase();
-      void supabase
-        .from("site_settings")
-        .select("key, value")
-        .in("key", ["homeVideoUrl", "homeImageUrl"])
-        .then(({ data, error }) => {
-          if (error) return;
-          const entries = (data || []) as Array<{ key: string; value?: string | null }>;
-          const nextVideoUrl = entries.find((entry) => entry.key === "homeVideoUrl")?.value?.trim() ?? "";
-          const nextImageUrl = entries.find((entry) => entry.key === "homeImageUrl")?.value?.trim() ?? "";
+      void loadRevenueEntriesFromServer();
+      void requestJson<Array<{ key: string; value?: string | null }>>('/api/site-settings?keys=homeVideoUrl,homeImageUrl')
+        .then((entries) => {
+          const nextVideoUrl = (entries || []).find((entry) => entry.key === "homeVideoUrl")?.value?.trim() ?? "";
+          const nextImageUrl = (entries || []).find((entry) => entry.key === "homeImageUrl")?.value?.trim() ?? "";
           if (nextVideoUrl) {
             setHomeVideoUrl(nextVideoUrl);
             save(KEY_HOME_VIDEO, nextVideoUrl);
@@ -325,7 +323,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             setHomeImageUrl(nextImageUrl);
             save(KEY_HOME_IMAGE, nextImageUrl);
           }
-        });
+        })
+        .catch((err) => console.error("Error loading site settings:", err));
     }
   }, []);
 
@@ -333,11 +332,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadProducts = async () => {
     if (typeof window === "undefined") return;
     try {
-      const { data, error } = await supabase.from("products").select("*");
-      if (error) {
-        console.error("Error loading products:", error);
-        return;
-      }
+      const data = await requestJson<Array<Record<string, unknown>>>('/api/products');
       setProducts((data || []).map(normalizeProduct));
     } catch (err) {
       console.error("Error loading products:", err);
@@ -352,15 +347,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadOrders = async () => {
     if (typeof window === "undefined") return;
     try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .order("createdat", { ascending: false });
-      if (error) {
-        console.error("Error loading orders:", error);
-        return;
-      }
-          setOrders((data || []).map((order) => normalizeOrder(order as Record<string, unknown>)));
+      const data = await requestJson<Array<Record<string, unknown>>>('/api/orders');
+      setOrders((data || []).map((order) => normalizeOrder(order as Record<string, unknown>)));
     } catch (err) {
       console.error("Error loading orders:", err);
     }
@@ -425,7 +413,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addProduct: async (p) => {
       if (typeof window === "undefined") return;
       try {
-        const { error } = await writeProductWithFallback("insert", {
+        const { error } = await saveProductWithApi("insert", {
           name: p.name,
           description: p.description,
           imageUrl: p.imageUrl,
@@ -469,7 +457,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateProduct: async (id, patch) => {
       if (typeof window === "undefined") return;
       try {
-        const { error } = await writeProductWithFallback(
+        const { error } = await saveProductWithApi(
           "update",
           {
             ...(patch.name !== undefined && { name: patch.name }),
@@ -501,17 +489,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteProduct: async (id) => {
       if (typeof window === "undefined") return;
       try {
-        const { error } = await supabase
-          .from("products")
-          .delete()
-          .eq("id", id);
-        
-        if (error) {
-          console.error("Error deleting product:", error);
+        const response = await fetch(`/api/products/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          const body = await response.text();
+          console.error("Error deleting product:", body);
           return;
         }
-        
-        // Reload products from Supabase
+
         await loadProducts();
       } catch (err) {
         console.error("Error deleting product:", err);
@@ -574,48 +563,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       };
 
       try {
-        // Save order to Supabase
-        const { error: orderError } = await supabase
-          .from("orders")
-          .insert([
-            {
-              id: order.id,
-              ordercode: order.orderCode,
-              customername: order.customerName,
-              whatsapp: order.whatsapp,
-              notes: order.notes,
-              items: order.items,
-              total: order.total,
-              status: order.status,
-              createdat: order.createdAt,
-            },
-          ]);
-        
-        if (orderError) {
-          console.error("Error saving order:", orderError);
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            id: order.id,
+            orderCode: order.orderCode,
+            customerName: order.customerName,
+            whatsapp: order.whatsapp,
+            notes: order.notes,
+            items: order.items,
+            total: order.total,
+            status: order.status,
+            createdAt: order.createdAt,
+          }),
+        });
+
+        if (!response.ok) {
+          const body = await response.text();
+          console.error("Error saving order:", body);
           return undefined;
         }
 
-        // Update products in Supabase
-        for (const p of products) {
-          const inCart = cart.filter((c) => c.productId === p.id);
-          const stockUsed = inCart.filter((c) => c.kind !== "order").reduce((sum, c) => sum + c.quantity, 0);
-          const orderUsed = inCart.filter((c) => c.kind === "order").reduce((sum, c) => sum + c.quantity, 0);
-          
-          if (stockUsed > 0 || orderUsed > 0) {
-            await writeProductWithFallback(
-              "update",
-              {
-                stock: Math.max(0, p.stock - stockUsed),
-                orderBalance: Math.max(0, (p.orderBalance ?? 0) - orderUsed),
-              },
-              p.id,
-            );
-          }
-        }
+        const payload = (await response.json()) as { order?: Order };
 
         // Update local state
-        setOrders((prev) => [order, ...prev]);
+        setOrders((prev) => [payload.order ?? order, ...prev]);
         setProducts((prev) =>
           prev.map((p) => {
             const inCart = cart.filter((c) => c.productId === p.id);
@@ -630,8 +605,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
         setCart([]);
 
-        void sendOrderToTelegram(order);
-        return order;
+        void sendOrderToTelegram(payload.order ?? order);
+        return payload.order ?? order;
       } catch (err) {
         console.error("Error creating order:", err);
         return undefined;
@@ -641,19 +616,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateOrderStatus: async (id, status, scheduledAt, adminMessage) => {
       if (typeof window === "undefined") return;
       try {
-        const { error } = await supabase
-          .from("orders")
-          .update({ status, scheduledat: scheduledAt, adminmessage: adminMessage })
-          .eq("id", id);
-        
-        if (error) {
-          console.error("Error updating order status:", error);
+        const response = await fetch(`/api/orders/${id}`, {
+          method: "PATCH",
+          credentials: "include",
+          cache: "no-store",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ status, scheduledAt, adminMessage }),
+        });
+
+        if (!response.ok) {
+          const body = await response.text();
+          console.error("Error updating order status:", body);
           return;
         }
-        
-        // Update local state
+
+        const payload = (await response.json()) as { order?: Order };
         setOrders((prev) =>
-          prev.map((o) => (o.id === id ? { ...o, status, scheduledAt, adminMessage } : o)),
+          prev.map((o) => (o.id === id ? { ...o, ...(payload.order ?? { status, scheduledAt, adminMessage }) } : o)),
         );
       } catch (err) {
         console.error("Error updating order status:", err);
@@ -663,18 +642,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     refreshOrderStatus: async (id) => {
       if (typeof window === "undefined") return;
       try {
-        const { data, error } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("id", id)
-          .maybeSingle();
+        const data = await requestJson<Record<string, unknown>>(`/api/orders/${id}`);
+        if (!data) return;
 
-        if (error || !data) {
-          if (error) console.error("Error refreshing order status:", error);
-          return;
-        }
-
-        const refreshedOrder = normalizeOrder(data as Record<string, unknown>);
+        const refreshedOrder = normalizeOrder(data);
         setOrders((prev) => {
           const exists = prev.some((order) => order.id === refreshedOrder.id);
           return exists
@@ -689,13 +660,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     submitOrderFeedback: async (id, feedback) => {
       if (typeof window === "undefined") return;
       try {
-        const { error } = await supabase
-          .from("orders")
-          .update({ feedback })
-          .eq("id", id);
+        const response = await fetch(`/api/orders/${id}`, {
+          method: "PATCH",
+          credentials: "include",
+          cache: "no-store",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ feedback }),
+        });
 
-        if (error) {
-          console.error("Error submitting order feedback:", error);
+        if (!response.ok) {
+          const body = await response.text();
+          console.error("Error submitting order feedback:", body);
           return;
         }
 
@@ -758,20 +733,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (typeof window === "undefined") return;
       try {
-        const { error } = await supabase.from("revenue_entries").insert([{
-          id: entry.id,
-          description: entry.description,
-          amount: entry.amount,
-          category: entry.category,
-          received_at: entry.receivedAt,
-          status: entry.status ?? "recebida",
-          notes: entry.notes ?? "",
-        }]);
-        if (error) {
-          const message = typeof error.message === "string" ? error.message : "";
-          if (!/does not exist|relation .*revenue_entries|cannot find/i.test(message)) {
-            console.error("Error saving revenue entry:", error);
-          }
+        const response = await fetch('/api/revenue-entries', {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            id: entry.id,
+            description: entry.description,
+            amount: entry.amount,
+            category: entry.category,
+            receivedAt: entry.receivedAt,
+            status: entry.status ?? 'recebida',
+            notes: entry.notes ?? '',
+          }),
+        });
+        if (!response.ok) {
+          const body = await response.text();
+          console.error("Error saving revenue entry:", body);
         }
       } catch (err) {
         console.error("Error saving revenue entry:", err);
@@ -781,12 +760,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteRevenue: async (id) => {
       if (typeof window === "undefined") return;
       try {
-        const { error } = await supabase.from("revenue_entries").delete().eq("id", id);
-        if (error) {
-          const message = typeof error.message === "string" ? error.message : "";
-          if (!/does not exist|relation .*revenue_entries|cannot find/i.test(message)) {
-            console.error("Error deleting revenue entry:", error);
-          }
+        const response = await fetch(`/api/revenue-entries/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          const body = await response.text();
+          console.error("Error deleting revenue entry:", body);
         }
       } catch (err) {
         console.error("Error deleting revenue entry:", err);
@@ -799,17 +780,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const next = value.trim();
       setHomeVideoUrl(next);
       save(KEY_HOME_VIDEO, next);
-      void supabase.from("site_settings").upsert({ key: "homeVideoUrl", value: next }, { onConflict: "key" }).then(({ error }) => {
-        if (error) console.error("Error saving home video URL:", error);
-      });
+      void fetch('/api/site-settings', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ key: 'homeVideoUrl', value: next }),
+      }).catch((err) => console.error("Error saving home video URL:", err));
     },
     setHomeImageUrl: (value) => {
       const next = value.trim();
       setHomeImageUrl(next);
       save(KEY_HOME_IMAGE, next);
-      void supabase.from("site_settings").upsert({ key: "homeImageUrl", value: next }, { onConflict: "key" }).then(({ error }) => {
-        if (error) console.error("Error saving home image URL:", error);
-      });
+      void fetch('/api/site-settings', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ key: 'homeImageUrl', value: next }),
+      }).catch((err) => console.error("Error saving home image URL:", err));
     },
 
     loginAdmin: async (password) => {
