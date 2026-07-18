@@ -17,44 +17,7 @@ const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 const DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_JsYyYlBFR2tgZru2s25J7w_z8EoOIEP";
-const FALLBACK_PRODUCTS = [
-  {
-    id: "fallback-product-1",
-    name: "Salgado de queijo",
-    description: "Massa leve com recheio cremoso e queijo derretido.",
-    imageUrl: "https://images.unsplash.com/photo-1518492104633-130d0cc84637?auto=format&fit=crop&w=900&q=80",
-    image_url: "https://images.unsplash.com/photo-1518492104633-130d0cc84637?auto=format&fit=crop&w=900&q=80",
-    price: 12.9,
-    stock: 20,
-    orderBalance: 0,
-    order_balance: 0,
-    partner: false,
-    promotion: true,
-    offerLabel: "Promoção da semana",
-    highlightDescription: "Perfeito para o café da manhã.",
-    featured: true,
-    mediaUrl: "",
-    mediaType: "image",
-  },
-  {
-    id: "fallback-product-2",
-    name: "Coxinha crocante",
-    description: "Recheio de frango temperado com massa crocante.",
-    imageUrl: "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=900&q=80",
-    image_url: "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=900&q=80",
-    price: 10.5,
-    stock: 18,
-    orderBalance: 0,
-    order_balance: 0,
-    partner: false,
-    promotion: false,
-    offerLabel: "",
-    highlightDescription: "Clássica e irresistível.",
-    featured: true,
-    mediaUrl: "",
-    mediaType: "image",
-  },
-];
+const FALLBACK_PRODUCTS: Array<Record<string, unknown>> = [];
 const supabaseUrl = process.env.SUPABASE_URL ?? "https://swzfjksxrsupkekwpyor.supabase.co";
 const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? DEFAULT_SUPABASE_ANON_KEY).trim();
 const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE ?? "").trim();
