@@ -44,17 +44,17 @@ DROP POLICY IF EXISTS "Allow public read" ON orders;
 DROP POLICY IF EXISTS "Allow all for now" ON orders;
 DROP POLICY IF EXISTS "Allow delete for now" ON orders;
 
--- 5. PRODUCTS: NO PUBLIC ACCESS BY DEFAULT
-CREATE POLICY "Products: deny anonymous read" ON products
-  FOR SELECT USING (auth.uid() IS NOT NULL);
+-- 5. PRODUCTS: PUBLIC READ FOR THE STOREFRONT, AUTHENTICATED WRITES FOR ADMIN
+CREATE POLICY "Products: allow public read" ON products
+  FOR SELECT USING (true);
 
-CREATE POLICY "Products: deny anonymous write" ON products
+CREATE POLICY "Products: allow authenticated write" ON products
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
-CREATE POLICY "Products: deny anonymous update" ON products
+CREATE POLICY "Products: allow authenticated update" ON products
   FOR UPDATE USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
 
-CREATE POLICY "Products: deny anonymous delete" ON products
+CREATE POLICY "Products: allow authenticated delete" ON products
   FOR DELETE USING (auth.uid() IS NOT NULL);
 
 -- 6. ORDERS: NO PUBLIC ACCESS BY DEFAULT
