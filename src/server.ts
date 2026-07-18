@@ -16,56 +16,41 @@ const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
-const DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_JsYyYlBFR2tgZru2s25J7w_z8EoOIEP";
-const FALLBACK_PRODUCTS: Array<Record<string, unknown>> = [
-  {
-    name: "Coxinha artesanal",
-    description: "Coxinha crocante com recheio cremoso de frango.",
-    imageurl: "https://placehold.co/800x600/png?text=Coxinha",
-    price: 7.5,
-    stock: 12,
-    orderbalance: 0,
-    partner: false,
-    promotion: true,
-  },
-  {
-    name: "Esfiha de carne",
-    description: "Esfiha macia recheada com carne temperada.",
-    price: 8.5,
-    stock: 10,
-    imageurl: "https://placehold.co/800x600/png?text=Esfiha",
-    orderbalance: 0,
-    partner: false,
-    promotion: false,
-  },
-  {
-    name: "Pastel de queijo",
-    description: "Pastel fritinho com queijo e cebola por cima.",
-    price: 9.0,
-    stock: 8,
-    imageurl: "https://placehold.co/800x600/png?text=Pastel",
-    orderbalance: 0,
-    partner: false,
-    promotion: true,
-  },
-];
-const supabaseUrl = process.env.SUPABASE_URL ?? "https://swzfjksxrsupkekwpyor.supabase.co";
-const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? DEFAULT_SUPABASE_ANON_KEY).trim();
-const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE ?? "").trim();
+const fallbackSupabaseUrl = "https://swzfjksxrsupkekwpyor.supabase.co";
+function readServerEnv(name: string, fallback = "") {
+  const runtimeEnv = (typeof process !== "undefined" && process.env ? process.env : {}) as Record<string, string | undefined>;
+  return runtimeEnv[name] ?? runtimeEnv[name.toUpperCase()] ?? fallback;
+}
+
+const supabaseUrl = readServerEnv("SUPABASE_URL", readServerEnv("VITE_SUPABASE_URL", fallbackSupabaseUrl)).trim();
+const supabaseAnonKey = readServerEnv("SUPABASE_ANON_KEY", readServerEnv("VITE_SUPABASE_ANON_KEY", "")).trim();
+const supabaseServiceKey = readServerEnv("SUPABASE_SERVICE_ROLE_KEY", readServerEnv("SUPABASE_SERVICE_ROLE", "")).trim();
 function looksLikeServiceRoleKey(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed) return false;
-  return trimmed.startsWith("eyJ") || trimmed.startsWith("sb_");
+  return trimmed.startsWith("eyJ") || trimmed.startsWith("sb_") || trimmed.length > 40;
 }
 const useServiceRoleClient = Boolean(supabaseServiceKey && !supabaseServiceKey.includes("publishable") && looksLikeServiceRoleKey(supabaseServiceKey));
-const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey || DEFAULT_SUPABASE_ANON_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-const supabaseAdmin = useServiceRoleClient
+const supabaseAnon = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  : null;
+const supabaseAdmin = useServiceRoleClient && supabaseUrl && supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
   : supabaseAnon;
+
+if (process.env.NODE_ENV === "production") {
+  console.log("Supabase runtime config", {
+    hasSupabaseUrl: Boolean(supabaseUrl),
+    hasAnonKey: Boolean(supabaseAnonKey),
+    hasServiceRoleKey: Boolean(supabaseServiceKey),
+    useServiceRoleClient,
+    supabaseUrl,
+  });
+}
 
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
@@ -321,14 +306,20 @@ async function handleProducts(request: Request, url: URL) {
   if (request.method === "GET") {
     const { data, error } = await supabaseAdmin.from("products").select("*").order("created_at", { ascending: false });
     if (error) {
+      console.error("Supabase products query failed", {
+        error: getSupabaseErrorMessage(error),
+        hasServiceRoleKey: Boolean(supabaseServiceKey),
+        useServiceRoleClient,
+        supabaseUrl,
+      });
       if (isRecoverableSupabaseReadError(error)) {
-        console.warn("Falling back to default products because Supabase read failed", getSupabaseErrorMessage(error));
-        return jsonResponse(FALLBACK_PRODUCTS);
+        console.warn("Supabase read failed for products", getSupabaseErrorMessage(error));
+        return jsonResponse([]);
       }
       return jsonResponse({ ok: false, error: getSupabaseErrorMessage(error) }, { status: 500 });
     }
     if (!data || data.length === 0) {
-      return jsonResponse(FALLBACK_PRODUCTS);
+      return jsonResponse([]);
     }
     return jsonResponse(data ?? []);
   }
