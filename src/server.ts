@@ -17,7 +17,38 @@ const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 const DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_JsYyYlBFR2tgZru2s25J7w_z8EoOIEP";
-const FALLBACK_PRODUCTS: Array<Record<string, unknown>> = [];
+const FALLBACK_PRODUCTS: Array<Record<string, unknown>> = [
+  {
+    name: "Coxinha artesanal",
+    description: "Coxinha crocante com recheio cremoso de frango.",
+    imageurl: "https://placehold.co/800x600/png?text=Coxinha",
+    price: 7.5,
+    stock: 12,
+    orderbalance: 0,
+    partner: false,
+    promotion: true,
+  },
+  {
+    name: "Esfiha de carne",
+    description: "Esfiha macia recheada com carne temperada.",
+    price: 8.5,
+    stock: 10,
+    imageurl: "https://placehold.co/800x600/png?text=Esfiha",
+    orderbalance: 0,
+    partner: false,
+    promotion: false,
+  },
+  {
+    name: "Pastel de queijo",
+    description: "Pastel fritinho com queijo e cebola por cima.",
+    price: 9.0,
+    stock: 8,
+    imageurl: "https://placehold.co/800x600/png?text=Pastel",
+    orderbalance: 0,
+    partner: false,
+    promotion: true,
+  },
+];
 const supabaseUrl = process.env.SUPABASE_URL ?? "https://swzfjksxrsupkekwpyor.supabase.co";
 const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? DEFAULT_SUPABASE_ANON_KEY).trim();
 const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE ?? "").trim();
@@ -291,7 +322,7 @@ async function handleProducts(request: Request, url: URL) {
     const { data, error } = await supabaseAdmin.from("products").select("*").order("created_at", { ascending: false });
     if (error) {
       if (isRecoverableSupabaseReadError(error)) {
-        console.warn("Falling back to empty products payload because Supabase read failed", getSupabaseErrorMessage(error));
+        console.warn("Falling back to default products because Supabase read failed", getSupabaseErrorMessage(error));
         return jsonResponse(FALLBACK_PRODUCTS);
       }
       return jsonResponse({ ok: false, error: getSupabaseErrorMessage(error) }, { status: 500 });

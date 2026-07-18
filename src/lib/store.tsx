@@ -12,6 +12,44 @@ const KEY_HOME_VIDEO = "sdp:homeVideoUrl";
 const KEY_HOME_IMAGE = "sdp:homeImageUrl";
 
 const DEFAULT_FEEDBACKS: ProductFeedback[] = [];
+const FALLBACK_PRODUCTS: Product[] = [
+  {
+    id: "fallback-coxinha",
+    name: "Coxinha artesanal",
+    description: "Coxinha crocante com recheio cremoso de frango.",
+    imageUrl: "https://placehold.co/800x600/png?text=Coxinha",
+    price: 7.5,
+    stock: 12,
+    orderBalance: 0,
+    partner: false,
+    promotion: true,
+    mediaType: "image",
+  },
+  {
+    id: "fallback-esfiha",
+    name: "Esfiha de carne",
+    description: "Esfiha macia recheada com carne temperada.",
+    imageUrl: "https://placehold.co/800x600/png?text=Esfiha",
+    price: 8.5,
+    stock: 10,
+    orderBalance: 0,
+    partner: false,
+    promotion: false,
+    mediaType: "image",
+  },
+  {
+    id: "fallback-pastel",
+    name: "Pastel de queijo",
+    description: "Pastel fritinho com queijo e cebola por cima.",
+    imageUrl: "https://placehold.co/800x600/png?text=Pastel",
+    price: 9,
+    stock: 8,
+    orderBalance: 0,
+    partner: false,
+    promotion: true,
+    mediaType: "image",
+  },
+];
 
 // Generate a simple, customer-friendly order code (e.g., "ABC123")
 function generateOrderCode(): string {
@@ -333,9 +371,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return;
     try {
       const data = await requestJson<Array<Record<string, unknown>>>('/api/products');
-      setProducts((data || []).map(normalizeProduct));
+      const nextProducts = (data || []).map(normalizeProduct);
+      setProducts(nextProducts.length > 0 ? nextProducts : FALLBACK_PRODUCTS);
     } catch (err) {
       console.error("Error loading products:", err);
+      setProducts(FALLBACK_PRODUCTS);
     }
   };
 
