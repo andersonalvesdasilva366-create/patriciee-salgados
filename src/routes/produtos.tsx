@@ -22,7 +22,7 @@ function ProductsPage() {
   const [sort, setSort] = useState<"default" | "price-asc" | "price-desc">("default");
 
   const filtered = useMemo(() => {
-    const matches = products.filter((p) => !p.partner).filter(
+    const matches = products.filter(
       (p) =>
         p.name.toLowerCase().includes(q.toLowerCase()) ||
         p.description.toLowerCase().includes(q.toLowerCase()),

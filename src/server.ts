@@ -21,7 +21,12 @@ const FALLBACK_PRODUCTS: Array<Record<string, unknown>> = [];
 const supabaseUrl = process.env.SUPABASE_URL ?? "https://swzfjksxrsupkekwpyor.supabase.co";
 const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? DEFAULT_SUPABASE_ANON_KEY).trim();
 const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE ?? "").trim();
-const useServiceRoleClient = Boolean(supabaseServiceKey && !supabaseServiceKey.includes("publishable"));
+function looksLikeServiceRoleKey(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return trimmed.startsWith("eyJ") || trimmed.startsWith("sb_");
+}
+const useServiceRoleClient = Boolean(supabaseServiceKey && !supabaseServiceKey.includes("publishable") && looksLikeServiceRoleKey(supabaseServiceKey));
 const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey || DEFAULT_SUPABASE_ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });

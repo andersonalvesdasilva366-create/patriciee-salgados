@@ -4,12 +4,10 @@ import { brl, formatDateTime } from "./format";
 /**
  * Telegram bot notification.
  *
- * Para ativar, defina TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID.
- * Enquanto vazios, a função apenas registra no console (modo dev).
- * Estruturado para migrar facilmente para um server function/edge no futuro.
+ * O envio agora é tratado no servidor, sem expor segredos no frontend.
  */
-const TELEGRAM_BOT_TOKEN = "8630103779:AAH_tbCWcReBn6wpJhERIwujdatNMNDYNMc";
-const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID || "6984704044";
+const TELEGRAM_BOT_TOKEN = "";
+const TELEGRAM_CHAT_ID = "";
 
 export function buildOrderMessage(order: Order): string {
   const products = order.items

@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 
+const PIX_PAYLOAD = "pix";
+
 export const Route = createFileRoute("/pedido/$id")({
   head: () => ({ meta: [{ title: "Status do pedido — Salgados da Paty" }] }),
   component: OrderStatusPage,
@@ -89,8 +91,7 @@ function OrderStatusPage() {
 
   const currentIndex = STEPS.findIndex((s) => s.key === order.status);
   const currentStep = currentIndex >= 0 ? STEPS[currentIndex] : STEPS[0];
-  // Static PIX QR Code (Pix Copia e Cola) - Customer enters the amount in their bank app
-  const pixPayload = "00020101021126580014br.gov.bcb.pix01368b692a15-5505-4127-9909-b4acd2b754b45204000053039865802BR5917ANDERSON DA SILVA6008CURITIBA62070503***6304EF82";
+  const pixPayload = PIX_PAYLOAD;
 
   const whatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá! Gostaria de tirar uma dúvida sobre o pedido ${order.orderCode} 😊`)}`;
   const adminWhatsappUrl = `https://wa.me/5541997474516?text=${encodeURIComponent(`Olá, Anderson! Vim pelo site e gostaria de falar sobre meu pedido ${order.orderCode} ou tirar mais informações sobre os salgados da Paty.`)}`;
