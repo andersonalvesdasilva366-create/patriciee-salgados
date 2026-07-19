@@ -125,6 +125,14 @@ type Ctx = {
 
 const StoreContext = createContext<Ctx | null>(null);
 
+function shouldIncludeProduct(row: Record<string, unknown>): boolean {
+  const price = Number((row.price as number | undefined) ?? 0);
+  if (!Number.isFinite(price) || price <= 0) return false;
+
+  const name = String(row.name ?? "").trim();
+  return Boolean(name);
+}
+
 function normalizeProduct(row: Record<string, unknown>): Product {
   const mediaTypeRaw = String(
     (row.mediaType as string | undefined) ??
@@ -333,7 +341,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return;
     try {
       const data = await requestJson<Array<Record<string, unknown>>>('/api/products');
-      setProducts((data || []).map(normalizeProduct));
+      const visibleProducts = (data || []).filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object") && shouldIncludeProduct(row));
+      setProducts(visibleProducts.map(normalizeProduct));
     } catch (err) {
       console.error("Error loading products:", err);
       setProducts([]);

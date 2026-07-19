@@ -179,6 +179,19 @@ function getPathSegments(url: URL) {
   return url.pathname.split("/").filter(Boolean);
 }
 
+function normalizeNumericValue(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isCatalogProduct(row: Record<string, unknown>): boolean {
+  const name = String(row.name ?? "").trim();
+  if (!name) return false;
+
+  const price = normalizeNumericValue(row.price);
+  return price > 0;
+}
+
 function buildProductPayload(values: Record<string, unknown>, variant: "camel" | "lower" | "snake") {
   const imageKey = variant === "camel" ? "imageUrl" : variant === "lower" ? "imageurl" : "image_url";
   const orderBalanceKey = variant === "camel" ? "orderBalance" : variant === "lower" ? "orderbalance" : "order_balance";
@@ -318,10 +331,12 @@ async function handleProducts(request: Request, url: URL) {
       }
       return jsonResponse({ ok: false, error: getSupabaseErrorMessage(error) }, { status: 500 });
     }
-    if (!data || data.length === 0) {
-      return jsonResponse([]);
-    }
-    return jsonResponse(data ?? []);
+
+    const catalogProducts = Array.isArray(data)
+      ? data.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object") && isCatalogProduct(row as Record<string, unknown>))
+      : [];
+
+    return jsonResponse(catalogProducts);
   }
 
   if (!hasValidAdminSession(request)) {
